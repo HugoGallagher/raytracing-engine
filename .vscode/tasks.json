@@ -1,0 +1,6 @@
+{
+    "label": "compile_shaders",
+    "type": "shell",
+    "command": "${cwd}/compile_shaders.bat",
+    "presentation": { "reveal": "always", "panel": "new" }
+}
