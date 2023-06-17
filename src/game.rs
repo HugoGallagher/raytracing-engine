@@ -44,7 +44,7 @@ impl Game {
     }
 
     pub unsafe fn draw(&mut self) {
-        
+        self.renderer.draw();
     }
 
     pub fn update_key(&mut self, vk: VirtualKeyCode, s: ElementState) {
