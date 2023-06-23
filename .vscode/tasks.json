@@ -1,6 +1,25 @@
 {
-    "label": "compile_shaders",
-    "type": "shell",
-    "command": "${cwd}/compile_shaders.bat",
-    "presentation": { "reveal": "always", "panel": "new" }
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "compile_shaders",
+            "type": "shell",
+            "command": "${cwd}/compile_shaders.bat",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "build_for_renderdoc",
+            "type": "shell",
+            "command": "${cwd}/build_for_renderdoc.bat",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        }
+    ]
 }

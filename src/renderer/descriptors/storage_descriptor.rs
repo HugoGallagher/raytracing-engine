@@ -3,12 +3,12 @@ use ash::vk;
 
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
-use crate::renderer::buffer::Buffer;
+use crate::renderer::buffer::{Buffer, BufferBuilder};
 
+#[derive(Copy, Clone)]
 pub struct StorageDescriptorBuilder {
-    binding: u32,
-    buffers: Vec<Buffer>,
-    sets: Vec<vk::DescriptorSet>,
+    buffer_count: usize,
+    buffer_builder: BufferBuilder,
 }
 
 pub struct StorageDescriptor {
@@ -18,14 +18,40 @@ pub struct StorageDescriptor {
 impl StorageDescriptorBuilder {
     pub fn new() -> StorageDescriptorBuilder {
         StorageDescriptorBuilder {
-            binding: 0,
-            buffers: Vec::<Buffer>::new(),
-            sets: Vec::<vk::DescriptorSet>::new(),
+            buffer_count: 0,
+            buffer_builder: BufferBuilder::new().usage(vk::BufferUsageFlags::STORAGE_BUFFER),
         }
     }
 
-    pub unsafe fn build(&self, c: &Core, d: &Device) -> StorageDescriptor {
-        StorageDescriptor::new(d, self.binding, &self.buffers, &self.sets)
+    pub fn buffer_count(&self, buffer_count: usize) -> StorageDescriptorBuilder {
+        StorageDescriptorBuilder {
+            buffer_count: buffer_count,
+            buffer_builder: self.buffer_builder,
+        }
+    }
+
+    pub fn buffer_sharing_mode(&self, sharing_mode: vk::SharingMode) -> StorageDescriptorBuilder {
+        StorageDescriptorBuilder {
+            buffer_count: self.buffer_count,
+            buffer_builder: self.buffer_builder.sharing_mode(sharing_mode),
+        }
+    }
+
+    pub fn buffer_size(&self, size: usize) -> StorageDescriptorBuilder {
+        StorageDescriptorBuilder {
+            buffer_count: self.buffer_count,
+            buffer_builder: self.buffer_builder.size(size),
+        }
+    }
+
+    pub unsafe fn build(&self, c: &Core, d: &Device, binding: u32, sets: &Vec<vk::DescriptorSet>) -> StorageDescriptor {
+        let mut buffers = Vec::<Buffer>::new();
+
+        for _ in 0..self.buffer_count {
+            buffers.push(self.buffer_builder.build(c, d));
+        }
+        
+        StorageDescriptor::new(d, binding, &buffers, &sets)
     }
 }
 

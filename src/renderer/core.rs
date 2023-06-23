@@ -34,6 +34,7 @@ unsafe extern "system" fn debug_callback_fn(
         &msg_id_num.to_string(),
         msg,
     );
+    println!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
     vk::FALSE
 }

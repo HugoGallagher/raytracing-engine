@@ -17,7 +17,7 @@ use std::ffi::c_void;
 
 use ash::{vk, version::DeviceV1_0};
 
-use crate::{window::Window, math::vec::Vec4};
+use crate::{window::Window, math::vec::Vec4, renderer::descriptors::storage_descriptor};
 
 pub struct Renderer {
     core: core::Core,
@@ -42,19 +42,21 @@ impl Renderer {
         let device = device::Device::new(&core, w);
         let swapchain = swapchain::Swapchain::new(&core, &device);
 
-        let uniform_buffer_builder = buffer::BufferBuilder::new()
-            .size(128)
-            .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
-
         let uniform_builder = descriptors::uniform_descriptor::UniformDescriptorBuilder::new()
             .buffer_count(FRAMES_IN_FLIGHT as usize)
-            .buffer_builder(uniform_buffer_builder);
+            .buffer_sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .buffer_size(128);
+
+        let storage_builder = descriptors::storage_descriptor::StorageDescriptorBuilder::new()
+            .buffer_count(FRAMES_IN_FLIGHT as usize)
+            .buffer_sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .buffer_size(128);
 
         let descriptors = descriptors::DescriptorsBuilder::new()
             .count(FRAMES_IN_FLIGHT as usize)
             .stage(vk::ShaderStageFlags::FRAGMENT)
             .add_uniform_builder(uniform_builder)
+            .add_storage_builder(storage_builder)
             .build(&core, &device);
 
         let compute_pipeline = compute_pipeline::ComputePipeline::new(&device, "test.comp");
@@ -93,10 +95,14 @@ impl Renderer {
         let present_index = self.swapchain.swapchain_init.acquire_next_image(self.swapchain.swapchain, u64::MAX, self.frames[self.current_frame as usize].image_available_semaphore.semaphore, vk::Fence::null()).unwrap().0 as usize;
         let present_indices = [present_index as u32];
 
-        let draw_col = Vec4::new(1.0, 0.0, 0.0, 1.0);
+        let draw_col = Vec4::new(1.0, 0.0, 1.0, 1.0);
         let draw_col_ptr: *const Vec4 = &draw_col;
 
+        let draw_cols = vec![Vec4::new(1.0, 0.0, 0.0, 1.0), Vec4::new(0.0, 1.0, 0.0, 1.0), Vec4::new(0.0, 0.0, 1.0, 1.0)];
+        let draw_cols_ptr: *const Vec4 = draw_cols.as_ptr();
+
         self.descriptors.uniforms[0].buffers[self.current_frame as usize].fill(&self.device, draw_col_ptr as *const c_void, 16);
+        self.descriptors.ssbos[0].buffers[self.current_frame as usize].fill(&self.device, draw_cols_ptr as *const c_void, 48);
 
         self.commands.record_one(&self.device, self.current_frame as usize, |b| {
             let clear_values = [vk::ClearValue { color: vk::ClearColorValue { float32: [0.5, 0.2, 0.5, 0.0]}}];

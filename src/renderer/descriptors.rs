@@ -10,11 +10,13 @@ use crate::renderer::core::Core;
 use crate::renderer::device::Device;
 use crate::renderer::swapchain::Swapchain;
 use crate::renderer::descriptors::uniform_descriptor::{UniformDescriptor, UniformDescriptorBuilder};
+use crate::renderer::descriptors::storage_descriptor::{StorageDescriptor, StorageDescriptorBuilder};
 
 pub struct DescriptorsBuilder {
     pub count: Option<usize>,
     pub stage: Option<vk::ShaderStageFlags>,
     pub uniform_builders: Vec<(u32, UniformDescriptorBuilder)>,
+    pub storage_builders: Vec<(u32, StorageDescriptorBuilder)>,
 
     next_binding: u32,
 }
@@ -25,6 +27,7 @@ impl DescriptorsBuilder {
             count: None,
             stage: None,
             uniform_builders: Vec::<(u32, UniformDescriptorBuilder)>::new(),
+            storage_builders: Vec::<(u32, StorageDescriptorBuilder)>::new(),
             next_binding: 0,
         }
     }
@@ -34,6 +37,7 @@ impl DescriptorsBuilder {
             count: Some(count),
             stage: self.stage,
             uniform_builders: self.uniform_builders.clone(),
+            storage_builders: self.storage_builders.clone(),
             next_binding: self.next_binding,
         }
     }
@@ -43,6 +47,7 @@ impl DescriptorsBuilder {
             count: self.count,
             stage: Some(stage),
             uniform_builders: self.uniform_builders.clone(),
+            storage_builders: self.storage_builders.clone(),
             next_binding: self.next_binding,
         }
     }
@@ -55,6 +60,20 @@ impl DescriptorsBuilder {
             count: self.count,
             stage: self.stage,
             uniform_builders: self.uniform_builders.clone(),
+            storage_builders: self.storage_builders.clone(),
+            next_binding: self.next_binding,
+        }
+    }
+
+    pub fn add_storage_builder(&mut self, builder: StorageDescriptorBuilder) -> DescriptorsBuilder {
+        self.storage_builders.push((self.next_binding, builder));
+        self.next_binding += 1;
+
+        DescriptorsBuilder {
+            count: self.count,
+            stage: self.stage,
+            uniform_builders: self.uniform_builders.clone(),
+            storage_builders: self.storage_builders.clone(),
             next_binding: self.next_binding,
         }
     }
@@ -89,6 +108,17 @@ impl Descriptors {
                     .build()
             )
         }
+
+        for descriptor_builder in &builder.storage_builders {
+            layout_bindings.push(
+                vk::DescriptorSetLayoutBinding::builder()
+                    .binding(descriptor_builder.0)
+                    .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                    .descriptor_count(1)
+                    .stage_flags(builder.stage.expect("Error: descriptors builder has no stage flags"))
+                    .build()
+            )
+        }
         
         let set_layout_ci = vk::DescriptorSetLayoutCreateInfo::builder()
             .bindings(&layout_bindings);
@@ -111,6 +141,15 @@ impl Descriptors {
                     .build()
             );
         }
+
+        if builder.storage_builders.len() > 0 {
+            pool_sizes.push(
+                vk::DescriptorPoolSize::builder()
+                    .ty(vk::DescriptorType::STORAGE_BUFFER)
+                    .descriptor_count((builder.storage_builders.len() * builder.count.expect("Error: descriptors builder has no count") * temp_constant) as u32)
+                    .build()
+            );
+        }
         
         let pool_ci = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&pool_sizes)
@@ -124,10 +163,10 @@ impl Descriptors {
 
         let sets = d.device.allocate_descriptor_sets(&set_ai).unwrap();
 
-        let mut uniforms = Vec::<uniform_descriptor::UniformDescriptor>::new();
-        let mut ssbos = Vec::<storage_descriptor::StorageDescriptor>::new();
-        let mut images = Vec::<image_descriptor::ImageDescriptor>::new();
-        let mut samplers = Vec::<sampler_descriptor::SamplerDescriptor>::new();
+        let uniforms = Vec::<uniform_descriptor::UniformDescriptor>::new();
+        let ssbos = Vec::<storage_descriptor::StorageDescriptor>::new();
+        let images = Vec::<image_descriptor::ImageDescriptor>::new();
+        let samplers = Vec::<sampler_descriptor::SamplerDescriptor>::new();
 
         let mut descriptors = Descriptors {
             pool,
@@ -142,6 +181,10 @@ impl Descriptors {
 
         for descriptor_builder in &builder.uniform_builders {
             descriptors.uniforms.push(descriptor_builder.1.build(c, d, descriptor_builder.0, &descriptors.sets));
+        }
+
+        for descriptor_builder in &builder.storage_builders {
+            descriptors.ssbos.push(descriptor_builder.1.build(c, d, descriptor_builder.0, &descriptors.sets));
         }
 
         descriptors

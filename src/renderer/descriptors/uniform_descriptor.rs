@@ -19,7 +19,7 @@ impl UniformDescriptorBuilder {
     pub fn new() -> UniformDescriptorBuilder {
         UniformDescriptorBuilder {
             buffer_count: 0,
-            buffer_builder: BufferBuilder::new(),
+            buffer_builder: BufferBuilder::new().usage(vk::BufferUsageFlags::UNIFORM_BUFFER),
         }
     }
 
@@ -30,10 +30,17 @@ impl UniformDescriptorBuilder {
         }
     }
 
-    pub fn buffer_builder(&self, buffer_builder: BufferBuilder) -> UniformDescriptorBuilder {
+    pub fn buffer_sharing_mode(&self, sharing_mode: vk::SharingMode) -> UniformDescriptorBuilder {
         UniformDescriptorBuilder {
             buffer_count: self.buffer_count,
-            buffer_builder: buffer_builder,
+            buffer_builder: self.buffer_builder.sharing_mode(sharing_mode),
+        }
+    }
+
+    pub fn buffer_size(&self, size: usize) -> UniformDescriptorBuilder {
+        UniformDescriptorBuilder {
+            buffer_count: self.buffer_count,
+            buffer_builder: self.buffer_builder.size(size),
         }
     }
 

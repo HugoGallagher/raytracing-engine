@@ -5,8 +5,12 @@ layout(binding = 0) uniform UBO {
     vec4 col;
 } ubo;
 
+layout(binding = 1) readonly buffer SSBO {
+    vec4 cols[];
+} ssbo;
+
 layout(location = 0) out vec4 outColor;
 
 void main() {
-    outColor = ubo.col;
+    outColor = ssbo.cols[2];
 }
