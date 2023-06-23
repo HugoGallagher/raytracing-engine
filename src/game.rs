@@ -1,4 +1,4 @@
-use crate::math::vec::{Vec2, Vec3, Vec4};
+use crate::math::vec::Vec2;
 use crate::window::Window;
 
 use crate::renderer::Renderer;

@@ -17,7 +17,13 @@ impl Swapchain {
     pub unsafe fn new(c: &Core, d: &Device) -> Swapchain {
         assert!(d.surface_capabilities.max_image_count >= 2, "Swapchain doesn't support 2 images");
 
-        let image_count = 2;
+        let image_count = if d.surface_capabilities.max_image_count > 0 && d.surface_capabilities.min_image_count + 1 > d.surface_capabilities.max_image_count {
+            d.surface_capabilities.max_image_count
+        } else {
+            d.surface_capabilities.min_image_count + 1
+        };
+
+        //let image_count = 2;
 
         let (queue_family_indices, sharing_mode) = if d.queue_present.1 == d.queue_graphics.1 {
             (vec![d.queue_present.1], vk::SharingMode::EXCLUSIVE)
@@ -26,6 +32,7 @@ impl Swapchain {
         };
 
         let present_mode = d.surface_init.get_physical_device_surface_present_modes(d.physical_device, d.surface).unwrap().iter().cloned().find(|&pm| pm == vk::PresentModeKHR::MAILBOX).unwrap_or(vk::PresentModeKHR::FIFO);
+        //let present_mode = vk::PresentModeKHR::IMMEDIATE;
 
         let swapchain_init = ash::extensions::khr::Swapchain::new(&c.instance, &d.device);
 

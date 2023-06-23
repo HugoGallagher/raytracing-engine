@@ -2,7 +2,6 @@ use ash::{version::DeviceV1_0, vk};
 
 use crate::renderer::device::Device;
 use crate::renderer::swapchain::Swapchain;
-use crate::renderer::framebuffer::Framebuffer;
 
 pub struct Commands {
     pub pool: vk::CommandPool,

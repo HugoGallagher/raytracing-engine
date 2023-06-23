@@ -2,7 +2,6 @@ use ash::version::DeviceV1_0;
 use ash::vk;
 
 use crate::renderer::device::Device;
-use crate::renderer::swapchain::Swapchain;
 use crate::renderer::graphics_pipeline::GraphicsPipeline;
 use crate::renderer::image::Image2D;
 
@@ -11,7 +10,7 @@ pub struct Framebuffer {
 }
 
 impl Framebuffer {
-    pub unsafe fn new(d: &Device, s: &Swapchain, g: &GraphicsPipeline, targets: &Vec<Image2D>) -> Framebuffer {
+    pub unsafe fn new(d: &Device, g: &GraphicsPipeline, targets: &Vec<Image2D>) -> Framebuffer {
         let framebuffers: Vec<vk::Framebuffer> = targets.iter().map(|&i| {
             let views = [i.view];
             

@@ -31,7 +31,10 @@ impl Frametime {
 
 impl std::fmt::Display for Frametime {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut display_text: String = String::from("Frametime: ");
+        let mut sum_time: u128 = 0;
+        self.deltas.iter().for_each(|entry| { sum_time += entry.1.as_millis(); });
+
+        let mut display_text: String = String::from(format!("Frametime (total = {}): ", sum_time));
 
         for (segment, time) in &self.deltas {
             display_text.push_str(&format!("\n\t{}: {}", segment, time.as_millis()));

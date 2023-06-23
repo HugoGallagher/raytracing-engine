@@ -1,14 +1,13 @@
-use std::{ffi::{c_char, CString}, fs::File};
+use std::ffi::CString;
 
-use ash::{version::DeviceV1_0, vk::VertexInputBindingDivisorDescriptionEXT, util::read_spv};
+use ash::version::DeviceV1_0;
 use ash::vk::{self, RenderPass};
 
-use crate::{math::vec::{Vec2, Vec3}, renderer::shader};
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
+use crate::renderer::descriptors::Descriptors;
 use crate::renderer::swapchain::Swapchain;
 use crate::renderer::shader::Shader;
-use crate::renderer::image::Image2D;
 
 pub struct GraphicsPipeline {
     pub pipeline: vk::Pipeline,
@@ -20,9 +19,9 @@ pub struct GraphicsPipeline {
 }
 
 impl GraphicsPipeline {
-    pub unsafe fn new(c: &Core, d: &Device, s: &Swapchain, vs: &str, fs: &str) -> GraphicsPipeline {
-        let vert_shader = Shader::new(vs, vk::ShaderStageFlags::VERTEX, c, d, s);
-        let frag_shader = Shader::new(fs, vk::ShaderStageFlags::FRAGMENT, c, d, s);
+    pub unsafe fn new(c: &Core, d: &Device, s: &Swapchain, de: &Descriptors, vs: &str, fs: &str) -> GraphicsPipeline {
+        let vert_shader = Shader::new(d, vs, vk::ShaderStageFlags::VERTEX);
+        let frag_shader = Shader::new(d, fs, vk::ShaderStageFlags::FRAGMENT);
 
         let shaders = vec![vert_shader, frag_shader];
 
@@ -87,7 +86,7 @@ impl GraphicsPipeline {
             .sample_shading_enable(false)
             .rasterization_samples(vk::SampleCountFlags::TYPE_1);
 
-        let color_blend_attachment_state = vk::PipelineColorBlendAttachmentState::builder()
+        let color_blend_attachment_states = [vk::PipelineColorBlendAttachmentState::builder()
             .color_write_mask(
                 vk::ColorComponentFlags::R
                 | vk::ColorComponentFlags::G
@@ -95,14 +94,16 @@ impl GraphicsPipeline {
                 | vk::ColorComponentFlags::A
             )
             .blend_enable(false)
-            .build();
+            .build()
+        ];
 
         let color_blend_state_ci = vk::PipelineColorBlendStateCreateInfo::builder()
             .logic_op_enable(false)
-            .attachments(&[color_blend_attachment_state])
+            .attachments(&color_blend_attachment_states)
             .build();
 
         let pipeline_layout_ci = vk::PipelineLayoutCreateInfo::builder()
+            .set_layouts(&[de.set_layout])
             .build();
         
         let pipeline_layout = d.device.create_pipeline_layout(&pipeline_layout_ci, None).unwrap();
@@ -117,14 +118,14 @@ impl GraphicsPipeline {
             ..Default::default()
         };
 
-        let color_attachment_reference = vk::AttachmentReference {
+        let color_attachment_references = [vk::AttachmentReference {
             attachment: 0,
             layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        };
+        }];
 
         let subpass_description = vk::SubpassDescription::builder()
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-            .color_attachments(&[color_attachment_reference])
+            .color_attachments(&color_attachment_references)
             .build();
         
         let subpass_dependency = vk::SubpassDependency::builder()

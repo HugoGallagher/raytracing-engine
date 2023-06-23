@@ -1,4 +1,3 @@
-use std::ffi::CString;
 use std::fs::File;
 
 use ash::util::read_spv;
@@ -16,7 +15,7 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub unsafe fn new(path: &str, flags: vk::ShaderStageFlags, c: &Core, d: &Device, s: &Swapchain) -> Shader {
+    pub unsafe fn new(d: &Device, path: &str, flags: vk::ShaderStageFlags) -> Shader {
         let shader_base_path = "./res/shaders/bin/";
         let shader_ext = ".spv";
 
