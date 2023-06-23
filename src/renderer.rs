@@ -3,6 +3,7 @@ mod device;
 mod swapchain;
 mod buffer;
 mod image;
+mod sampler;
 mod graphics_pipeline;
 mod compute_pipeline;
 mod descriptors;

@@ -3,7 +3,7 @@ use ash::vk;
 
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
-use crate::renderer::image::Sampler;
+use crate::renderer::sampler::Sampler;
 use crate::renderer::descriptors::Descriptors;
 use crate::renderer::swapchain::Swapchain;
 
