@@ -58,6 +58,15 @@ impl BufferBuilder {
     pub unsafe fn build(&self, c: &Core, d: &Device) -> Buffer {
         Buffer::new(c, d, self.size.expect("Error: BufferBuilder is missing size"), self.usage.expect("Error: BufferBuilder is missing usage"), self.sharing_mode.expect("Error: BufferBuilder is missing sharing_mode"))
     }
+
+    pub unsafe fn build_many(&self, c: &Core, d: &Device, count: u32) -> Vec<Buffer> {
+        let mut buffers = Vec::<Buffer>::new();
+        for _ in 0..count {
+            buffers.push(Buffer::new(c, d, self.size.expect("Error: BufferBuilder is missing size"), self.usage.expect("Error: BufferBuilder is missing usage"), self.sharing_mode.expect("Error: BufferBuilder is missing sharing_mode")));
+        }
+
+        buffers
+    }
 }
 
 pub struct VertexAttribute {

@@ -3,6 +3,7 @@ use ash::vk;
 
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
+use crate::renderer::sampler::Sampler;
 
 #[derive(Copy, Clone)]
 pub struct Image2D {
@@ -14,11 +15,83 @@ pub struct Image2D {
     pub extent: vk::Extent2D,
 }
 
+#[derive(Copy, Clone)]
 pub struct Image2DBuilder {
-    pub width: u32,
-    pub height: u32,
-    pub usage: vk::ImageUsageFlags,
-    pub format: vk::Format,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub usage: Option<vk::ImageUsageFlags>,
+    pub format: Option<vk::Format>,
+}
+
+impl Image2DBuilder {
+    pub fn new() -> Image2DBuilder {
+        Image2DBuilder {
+            width: None,
+            height: None,
+            usage: None,
+            format: None,
+        }
+    }
+    pub fn width(&self, width: u32) -> Image2DBuilder {
+        Image2DBuilder {
+            width: Some(width),
+            height: self.height,
+            usage: self.usage,
+            format: self.format,
+        }
+    }
+    
+    pub fn height(&self, height: u32) -> Image2DBuilder {
+        Image2DBuilder {
+            width: self.width,
+            height: Some(height),
+            usage: self.usage,
+            format: self.format,
+        }
+    }
+    
+    pub fn usage(&self, usage: vk::ImageUsageFlags) -> Image2DBuilder {
+        Image2DBuilder {
+            width: self.width,
+            height: self.height,
+            usage: Some(usage),
+            format: self.format,
+        }
+    }
+    
+    pub fn format(&self, format: vk::Format) -> Image2DBuilder {
+        Image2DBuilder {
+            width: self.width,
+            height: self.height,
+            usage: self.usage,
+            format: Some(format),
+        }
+    }
+
+    pub unsafe fn build(&self, c: &Core, d: &Device) -> Image2D {
+        Image2D::new(
+            c, d,
+            self.width.expect("Error: Image builder has no specified width"),
+            self.height.expect("Error: Image builder has no specified height"),
+            self.usage.expect("Error: Image builder has no specified usage"),
+            self.format.expect("Error: Image builder has no specified format"),
+        )
+    }
+
+    pub unsafe fn build_many(&self, c: &Core, d: &Device, count: u32) -> Vec<Image2D> {
+        let mut images = Vec::<Image2D>::new();
+        for _ in 0..count {
+            images.push(Image2D::new(
+                c, d,
+                self.width.expect("Error: Image builder has no specified width"),
+                self.height.expect("Error: Image builder has no specified height"),
+                self.usage.expect("Error: Image builder has no specified usage"),
+                self.format.expect("Error: Image builder has no specified format"),
+            ));
+        }
+
+        images
+    }
 }
 
 impl Image2D {
@@ -91,5 +164,14 @@ impl Image2D {
             height: h,
             extent: extent,
         }
+    }
+
+    pub unsafe fn generate_samplers(c: &Core, d: &Device, images: &Vec<Image2D>) -> Vec<Sampler> {
+        let mut samplers = Vec::<Sampler>::new();
+        for image in images {
+            samplers.push(Sampler::new(c, d, image.view))
+        }
+
+        samplers
     }
 }

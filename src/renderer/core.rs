@@ -34,7 +34,6 @@ unsafe extern "system" fn debug_callback_fn(
         &msg_id_num.to_string(),
         msg,
     );
-    println!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
     vk::FALSE
 }
@@ -62,6 +61,7 @@ impl Core {
         extension_names_raw.push(DebugUtils::name().as_ptr());
 
         let app_i = vk::ApplicationInfo::builder()
+            .api_version(vk::make_version(1, 0, 0))
             .application_name(&name);
 
         let instance_ci = vk::InstanceCreateInfo::builder()

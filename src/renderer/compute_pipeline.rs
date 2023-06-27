@@ -4,6 +4,7 @@ use std::{ffi::CString, io::Cursor};
 use ash::{util::read_spv, version::DeviceV1_0, vk};
 
 use crate::renderer::device::Device;
+use crate::renderer::descriptors::Descriptors;
 use crate::renderer::shader::Shader;
 
 pub struct ComputePipeline {
@@ -12,7 +13,7 @@ pub struct ComputePipeline {
 }
 
 impl ComputePipeline {
-    pub unsafe fn new(d: &Device, cs: &str) -> ComputePipeline {
+    pub unsafe fn new(d: &Device, de: &Descriptors, cs: &str) -> ComputePipeline {
         let comp_shader = Shader::new(d, cs, vk::ShaderStageFlags::COMPUTE);
 
         let shader_entry_name = CString::new("main").unwrap();
@@ -24,6 +25,7 @@ impl ComputePipeline {
             .build();
 
         let pipeline_layout_ci = vk::PipelineLayoutCreateInfo::builder()
+            .set_layouts(&[de.set_layout])
             .build();
 
         let pipeline_layout = d.device.create_pipeline_layout(&pipeline_layout_ci, None).unwrap();

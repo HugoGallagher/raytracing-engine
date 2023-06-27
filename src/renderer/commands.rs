@@ -1,7 +1,6 @@
 use ash::{version::DeviceV1_0, vk};
 
 use crate::renderer::device::Device;
-use crate::renderer::swapchain::Swapchain;
 
 pub struct Commands {
     pub pool: vk::CommandPool,
@@ -9,7 +8,7 @@ pub struct Commands {
 }
 
 impl Commands {
-    pub unsafe fn new(d: &Device, s: &Swapchain, q: u32, c: u32) -> Commands {
+    pub unsafe fn new(d: &Device, q: u32, c: u32) -> Commands {
         let pool_ci = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(q);

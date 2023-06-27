@@ -8,26 +8,31 @@ use ash::vk;
 
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
-use crate::renderer::swapchain::Swapchain;
-use crate::renderer::descriptors::uniform_descriptor::{UniformDescriptor, UniformDescriptorBuilder};
-use crate::renderer::descriptors::storage_descriptor::{StorageDescriptor, StorageDescriptorBuilder};
+use crate::renderer::descriptors::uniform_descriptor::UniformDescriptorBuilder;
+use crate::renderer::descriptors::storage_descriptor::StorageDescriptorBuilder;
+use crate::renderer::descriptors::image_descriptor::ImageDescriptorBuilder;
+use crate::renderer::descriptors::sampler_descriptor::SamplerDescriptorBuilder;
 
-pub struct DescriptorsBuilder {
+pub struct DescriptorsBuilder<'a> {
     pub count: Option<usize>,
     pub stage: Option<vk::ShaderStageFlags>,
-    pub uniform_builders: Vec<(u32, UniformDescriptorBuilder)>,
+    pub uniform_builders: Vec<(u32, UniformDescriptorBuilder<'a>)>,
     pub storage_builders: Vec<(u32, StorageDescriptorBuilder)>,
+    pub image_builders: Vec<(u32, ImageDescriptorBuilder<'a>)>,
+    pub sampler_builders: Vec<(u32, SamplerDescriptorBuilder<'a>)>,
 
     next_binding: u32,
 }
 
-impl DescriptorsBuilder {
-    pub fn new() -> DescriptorsBuilder {
+impl <'a> DescriptorsBuilder<'a> {
+    pub fn new() -> DescriptorsBuilder<'a> {
         DescriptorsBuilder {
             count: None,
             stage: None,
             uniform_builders: Vec::<(u32, UniformDescriptorBuilder)>::new(),
             storage_builders: Vec::<(u32, StorageDescriptorBuilder)>::new(),
+            image_builders: Vec::<(u32, ImageDescriptorBuilder)>::new(),
+            sampler_builders: Vec::<(u32, SamplerDescriptorBuilder)>::new(),
             next_binding: 0,
         }
     }
@@ -38,6 +43,8 @@ impl DescriptorsBuilder {
             stage: self.stage,
             uniform_builders: self.uniform_builders.clone(),
             storage_builders: self.storage_builders.clone(),
+            image_builders: self.image_builders.clone(),
+            sampler_builders: self.sampler_builders.clone(),
             next_binding: self.next_binding,
         }
     }
@@ -48,11 +55,13 @@ impl DescriptorsBuilder {
             stage: Some(stage),
             uniform_builders: self.uniform_builders.clone(),
             storage_builders: self.storage_builders.clone(),
+            image_builders: self.image_builders.clone(),
+            sampler_builders: self.sampler_builders.clone(),
             next_binding: self.next_binding,
         }
     }
 
-    pub fn add_uniform_builder(&mut self, builder: UniformDescriptorBuilder) -> DescriptorsBuilder {
+    pub fn add_uniform_builder(&mut self, builder: UniformDescriptorBuilder<'a>) -> DescriptorsBuilder {
         self.uniform_builders.push((self.next_binding, builder));
         self.next_binding += 1;
 
@@ -61,6 +70,8 @@ impl DescriptorsBuilder {
             stage: self.stage,
             uniform_builders: self.uniform_builders.clone(),
             storage_builders: self.storage_builders.clone(),
+            image_builders: self.image_builders.clone(),
+            sampler_builders: self.sampler_builders.clone(),
             next_binding: self.next_binding,
         }
     }
@@ -74,6 +85,38 @@ impl DescriptorsBuilder {
             stage: self.stage,
             uniform_builders: self.uniform_builders.clone(),
             storage_builders: self.storage_builders.clone(),
+            image_builders: self.image_builders.clone(),
+            sampler_builders: self.sampler_builders.clone(),
+            next_binding: self.next_binding,
+        }
+    }
+
+    pub fn add_image_builder(&mut self, builder: ImageDescriptorBuilder<'a>) -> DescriptorsBuilder {
+        self.image_builders.push((self.next_binding, builder));
+        self.next_binding += 1;
+
+        DescriptorsBuilder {
+            count: self.count,
+            stage: self.stage,
+            uniform_builders: self.uniform_builders.clone(),
+            storage_builders: self.storage_builders.clone(),
+            image_builders: self.image_builders.clone(),
+            sampler_builders: self.sampler_builders.clone(),
+            next_binding: self.next_binding,
+        }
+    }
+
+    pub fn add_sampler_builder(&mut self, builder: SamplerDescriptorBuilder<'a>) -> DescriptorsBuilder {
+        self.sampler_builders.push((self.next_binding, builder));
+        self.next_binding += 1;
+
+        DescriptorsBuilder {
+            count: self.count,
+            stage: self.stage,
+            uniform_builders: self.uniform_builders.clone(),
+            storage_builders: self.storage_builders.clone(),
+            image_builders: self.image_builders.clone(),
+            sampler_builders: self.sampler_builders.clone(),
             next_binding: self.next_binding,
         }
     }
@@ -119,6 +162,28 @@ impl Descriptors {
                     .build()
             )
         }
+
+        for descriptor_builder in &builder.image_builders {
+            layout_bindings.push(
+                vk::DescriptorSetLayoutBinding::builder()
+                    .binding(descriptor_builder.0)
+                    .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
+                    .descriptor_count(1)
+                    .stage_flags(builder.stage.expect("Error: descriptors builder has no stage flags"))
+                    .build()
+            )
+        }
+
+        for descriptor_builder in &builder.sampler_builders {
+            layout_bindings.push(
+                vk::DescriptorSetLayoutBinding::builder()
+                    .binding(descriptor_builder.0)
+                    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                    .descriptor_count(1)
+                    .stage_flags(builder.stage.expect("Error: descriptors builder has no stage flags"))
+                    .build()
+            )
+        }
         
         let set_layout_ci = vk::DescriptorSetLayoutCreateInfo::builder()
             .bindings(&layout_bindings);
@@ -147,6 +212,24 @@ impl Descriptors {
                 vk::DescriptorPoolSize::builder()
                     .ty(vk::DescriptorType::STORAGE_BUFFER)
                     .descriptor_count((builder.storage_builders.len() * builder.count.expect("Error: descriptors builder has no count") * temp_constant) as u32)
+                    .build()
+            );
+        }
+
+        if builder.image_builders.len() > 0 {
+            pool_sizes.push(
+                vk::DescriptorPoolSize::builder()
+                    .ty(vk::DescriptorType::STORAGE_IMAGE)
+                    .descriptor_count((builder.image_builders.len() * builder.count.expect("Error: descriptors builder has no count") * temp_constant) as u32)
+                    .build()
+            );
+        }
+
+        if builder.sampler_builders.len() > 0 {
+            pool_sizes.push(
+                vk::DescriptorPoolSize::builder()
+                    .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                    .descriptor_count((builder.sampler_builders.len() * builder.count.expect("Error: descriptors builder has no count") * temp_constant) as u32)
                     .build()
             );
         }
@@ -185,6 +268,14 @@ impl Descriptors {
 
         for descriptor_builder in &builder.storage_builders {
             descriptors.ssbos.push(descriptor_builder.1.build(c, d, descriptor_builder.0, &descriptors.sets));
+        }
+
+        for descriptor_builder in &builder.image_builders {
+            descriptors.images.push(descriptor_builder.1.build(c, d, descriptor_builder.0, &descriptors.sets));
+        }
+
+        for descriptor_builder in &builder.sampler_builders {
+            descriptors.samplers.push(descriptor_builder.1.build(c, d, descriptor_builder.0, &descriptors.sets));
         }
 
         descriptors
