@@ -111,10 +111,12 @@ impl Renderer {
     pub unsafe fn draw(&mut self) {
         self.current_frame = (self.current_frame + 1) % self.frames_in_flight;
 
-        self.device.device.wait_for_fences(&[self.frames[self.current_frame as usize].in_flight_fence.fence], true, u64::MAX).unwrap();
-        self.device.device.reset_fences(&[self.frames[self.current_frame as usize].in_flight_fence.fence]).unwrap();
+        let active_frame = &self.frames[self.current_frame as usize];
 
-        let present_index = self.swapchain.swapchain_init.acquire_next_image(self.swapchain.swapchain, u64::MAX, self.frames[self.current_frame as usize].image_available_semaphore.semaphore, vk::Fence::null()).unwrap().0 as usize;
+        self.device.device.wait_for_fences(&[active_frame.in_flight_fence.fence], true, u64::MAX).unwrap();
+        self.device.device.reset_fences(&[active_frame.in_flight_fence.fence]).unwrap();
+
+        let present_index = self.swapchain.swapchain_init.acquire_next_image(self.swapchain.swapchain, u64::MAX, active_frame.image_available_semaphore.semaphore, vk::Fence::null()).unwrap().0 as usize;
         let present_indices = [present_index as u32];
 
         self.compute_commands.record_one(&self.device, self.current_frame as usize, |b| {
@@ -152,33 +154,41 @@ impl Renderer {
             self.device.device.cmd_end_render_pass(b);
         });
 
-        let compute_wait_semaphores = [self.frames[self.current_frame as usize].image_available_semaphore.semaphore];
-        let compute_signal_semaphores = [self.frames[self.current_frame as usize].compute_finished_semaphore.semaphore];
+        let compute_wait_semaphores = [active_frame.image_available_semaphore.semaphore];
+        let compute_signal_semaphores = [active_frame.compute_finished_semaphore.semaphore];
         let compute_wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
 
-        let graphics_wait_semaphores = [self.frames[self.current_frame as usize].compute_finished_semaphore.semaphore];
-        let graphics_signal_semaphores = [self.frames[self.current_frame as usize].render_finished_semaphore.semaphore];
-        let graphics_wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+        let graphics_wait_semaphores = [active_frame.image_available_semaphore.semaphore, active_frame.compute_finished_semaphore.semaphore];
+        let graphics_signal_semaphores = [active_frame.render_finished_semaphore.semaphore];
+        let graphics_wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT, vk::PipelineStageFlags::COMPUTE_SHADER];
 
         let compute_command_buffers = [self.compute_commands.buffers[self.current_frame as usize]];
         let graphics_command_buffers = [self.graphics_commands.buffers[self.current_frame as usize]];
 
-        let compute_submit_i = vk::SubmitInfo::builder()
-            .wait_semaphores(&compute_wait_semaphores)
-            .signal_semaphores(&compute_signal_semaphores)
-            .wait_dst_stage_mask(&compute_wait_stages)
-            .command_buffers(&compute_command_buffers)
-            .build();
+        let compute_submit_i = vk::SubmitInfo {
+            wait_semaphore_count: 0,
+            p_wait_semaphores: compute_wait_semaphores.as_ptr(),
+            signal_semaphore_count: 1,
+            p_signal_semaphores: compute_signal_semaphores.as_ptr(),
+            p_wait_dst_stage_mask: compute_wait_stages.as_ptr(),
+            command_buffer_count: 1,
+            p_command_buffers: compute_command_buffers.as_ptr(),
+            ..Default::default()
+        };
 
-        let graphics_submit_i = vk::SubmitInfo::builder()
-            .wait_semaphores(&graphics_wait_semaphores)
-            .signal_semaphores(&graphics_signal_semaphores)
-            .wait_dst_stage_mask(&graphics_wait_stages)
-            .command_buffers(&graphics_command_buffers)
-            .build();
+        let graphics_submit_i = vk::SubmitInfo {
+            wait_semaphore_count: 2,
+            p_wait_semaphores: graphics_wait_semaphores.as_ptr(),
+            signal_semaphore_count: 1,
+            p_signal_semaphores: graphics_signal_semaphores.as_ptr(),
+            p_wait_dst_stage_mask: graphics_wait_stages.as_ptr(),
+            command_buffer_count: 1,
+            p_command_buffers: graphics_command_buffers.as_ptr(),
+            ..Default::default()
+        };
 
         self.device.device.queue_submit(self.device.queue_compute.0, &[compute_submit_i], vk::Fence::null()).unwrap();
-        self.device.device.queue_submit(self.device.queue_graphics.0, &[graphics_submit_i], self.frames[self.current_frame as usize].in_flight_fence.fence).unwrap();
+        self.device.device.queue_submit(self.device.queue_graphics.0, &[graphics_submit_i], active_frame.in_flight_fence.fence).unwrap();
 
         let swapchains = [self.swapchain.swapchain];
 
@@ -188,5 +198,7 @@ impl Renderer {
             .image_indices(&present_indices);
 
         self.swapchain.swapchain_init.queue_present(self.device.queue_present.0, &present_i).unwrap();
+
+        println!("Image available semaphore: {:?}\nCompute finished semaphore: {:?}\nRender finished semaphore: {:?}\n", active_frame.image_available_semaphore.semaphore, active_frame.compute_finished_semaphore.semaphore, active_frame.render_finished_semaphore.semaphore);
     }
 }
