@@ -8,7 +8,7 @@ pub struct Commands {
 }
 
 impl Commands {
-    pub unsafe fn new(d: &Device, q: u32, c: u32) -> Commands {
+    pub unsafe fn new(d: &Device, q: u32, c: usize) -> Commands {
         let pool_ci = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(q);
@@ -18,7 +18,7 @@ impl Commands {
         let buffer_alloc_i = vk::CommandBufferAllocateInfo::builder()
             .command_pool(pool)
             .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(c);
+            .command_buffer_count(c as u32);
 
         let buffers = d.device.allocate_command_buffers(&buffer_alloc_i).unwrap();
 

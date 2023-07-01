@@ -4,21 +4,26 @@ mod swapchain;
 mod buffer;
 mod image;
 mod sampler;
-mod graphics_pipeline;
-mod compute_pipeline;
 mod descriptors;
 mod shader;
 mod framebuffer;
 mod commands;
+mod compute_pipeline;
+mod graphics_pipeline;
+mod compute_pass;
+mod graphics_pass;
+mod compute_layer;
 mod fence;
 mod semaphore;
 mod frame;
+mod mesh;
+mod push_constant;
 
-use std::ffi::c_void;
+use std::mem;
 
 use ash::{vk, version::DeviceV1_0};
 
-use crate::{window::Window, math::vec::Vec4, renderer::descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}};
+use crate::{window::Window, math::vec::{Vec4, Vec3}, renderer::descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}};
 
 pub struct Renderer {
     core: core::Core,
@@ -27,9 +32,8 @@ pub struct Renderer {
 
     images: Vec<image::Image2D>,
 
-    compute_descriptors: descriptors::Descriptors,
-    compute_pipeline: compute_pipeline::ComputePipeline,
-    compute_commands: commands::Commands,
+    push_constant: Vec4,
+    compute_layer: compute_layer::ComputeLayer,
     
     graphics_descriptors: descriptors::Descriptors,
     graphics_pipeline: graphics_pipeline::GraphicsPipeline,
@@ -37,8 +41,8 @@ pub struct Renderer {
 
     frames: Vec<frame::Frame>,
 
-    frames_in_flight: u32,
-    current_frame: u32,
+    frames_in_flight: usize,
+    current_frame: usize,
 }
 
 impl Renderer {
@@ -50,8 +54,8 @@ impl Renderer {
         let swapchain = swapchain::Swapchain::new(&core, &device);
 
         let images = image::Image2DBuilder::new()
-            .width(500)
-            .height(500)
+            .width(1280)
+            .height(720)
             .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED)
             .format(vk::Format::R8G8B8A8_UNORM)
             .build_many(&core, &device, FRAMES_IN_FLIGHT);
@@ -62,11 +66,15 @@ impl Renderer {
         let sampler_descriptor_builder = descriptors::sampler_descriptor::SamplerDescriptorBuilder::new()
             .images(&images);
 
-        let compute_descriptors = descriptors::DescriptorsBuilder::new()
-            .count(FRAMES_IN_FLIGHT as usize)
-            .stage(vk::ShaderStageFlags::COMPUTE)
-            .add_image_builder(image_descriptor_builder)
-            .build(&core, &device);
+        let compute_descriptors_builder = descriptors::DescriptorsBuilder::new();
+        let compute_descriptors_builder = compute_descriptors_builder.count(FRAMES_IN_FLIGHT as usize);
+        let mut compute_descriptors_builder = compute_descriptors_builder.stage(vk::ShaderStageFlags::COMPUTE);
+        let compute_descriptors_builder = compute_descriptors_builder.add_image_builder(image_descriptor_builder);
+
+        let push_constant = Vec4::zero();
+
+        let mut compute_layer = compute_layer::ComputeLayer::new(&core, &device, FRAMES_IN_FLIGHT as usize);
+        compute_layer.add_pass(&core, &device, Some(compute_descriptors_builder), Some(mem::size_of::<Vec4>()), "test.comp", (1280 / 16, 720 / 16, 1));
 
         let graphics_descriptors = descriptors::DescriptorsBuilder::new()
             .count(FRAMES_IN_FLIGHT as usize)
@@ -74,11 +82,8 @@ impl Renderer {
             .add_sampler_builder(sampler_descriptor_builder)
             .build(&core, &device);
 
-        let compute_pipeline = compute_pipeline::ComputePipeline::new(&device, &compute_descriptors, "test.comp");
         let graphics_pipeline = graphics_pipeline::GraphicsPipeline::new(&core, &device, &swapchain, &graphics_descriptors, "draw_to_screen.vert", "draw_to_screen.frag");
-
-        let compute_commands = commands::Commands::new(&device, device.queue_compute.1, FRAMES_IN_FLIGHT);
-        let graphics_commands = commands::Commands::new(&device, device.queue_graphics.1, FRAMES_IN_FLIGHT);
+        let graphics_commands = commands::Commands::new(&device, device.queue_graphics.1, FRAMES_IN_FLIGHT as usize);
 
         let mut frames = Vec::<frame::Frame>::new();
 
@@ -93,9 +98,8 @@ impl Renderer {
 
             images,
 
-            compute_descriptors,
-            compute_pipeline,
-            compute_commands,
+            push_constant,
+            compute_layer,
 
             graphics_descriptors,
             graphics_pipeline,
@@ -103,7 +107,7 @@ impl Renderer {
 
             frames,
 
-            frames_in_flight: FRAMES_IN_FLIGHT,
+            frames_in_flight: FRAMES_IN_FLIGHT as usize,
             current_frame: 0,
         }
     }
@@ -111,21 +115,18 @@ impl Renderer {
     pub unsafe fn draw(&mut self) {
         self.current_frame = (self.current_frame + 1) % self.frames_in_flight;
 
-        let active_frame = &self.frames[self.current_frame as usize];
+        let active_frame = &self.frames[self.current_frame];
 
         self.device.device.wait_for_fences(&[active_frame.in_flight_fence.fence], true, u64::MAX).unwrap();
         self.device.device.reset_fences(&[active_frame.in_flight_fence.fence]).unwrap();
 
         let present_index = self.swapchain.swapchain_init.acquire_next_image(self.swapchain.swapchain, u64::MAX, active_frame.image_available_semaphore.semaphore, vk::Fence::null()).unwrap().0 as usize;
         let present_indices = [present_index as u32];
+        
+        self.compute_layer.fill_push_constant(0, &self.push_constant);
+        self.compute_layer.record_one(&self.device, self.current_frame);
 
-        self.compute_commands.record_one(&self.device, self.current_frame as usize, |b| {
-            self.device.device.cmd_bind_pipeline(b, vk::PipelineBindPoint::COMPUTE, self.compute_pipeline.pipeline);
-
-            self.compute_descriptors.bind(&self.device, &b, vk::PipelineBindPoint::COMPUTE, &self.compute_pipeline.pipeline_layout, self.current_frame as usize);
-
-            self.device.device.cmd_dispatch(b, self.device.surface_extent.width / 16, self.device.surface_extent.height / 16, 1);
-        });
+        self.push_constant.x = (self.push_constant.x + 0.001).clamp(0.0, 1.0);
 
         self.graphics_commands.record_one(&self.device, self.current_frame as usize, |b| {
             let clear_values = [vk::ClearValue { color: vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}}];
@@ -141,7 +142,7 @@ impl Renderer {
                 .render_area(rect)
                 .clear_values(&clear_values);
 
-            self.graphics_descriptors.bind(&self.device, &b, vk::PipelineBindPoint::GRAPHICS, &self.graphics_pipeline.pipeline_layout, self.current_frame as usize);
+            self.graphics_descriptors.bind(&self.device, &b, vk::PipelineBindPoint::GRAPHICS, &self.graphics_pipeline.pipeline_layout, self.current_frame);
 
             self.device.device.cmd_begin_render_pass(b, &render_pass_bi, vk::SubpassContents::INLINE);
 
@@ -162,15 +163,15 @@ impl Renderer {
         let graphics_signal_semaphores = [active_frame.render_finished_semaphore.semaphore];
         let graphics_wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT, vk::PipelineStageFlags::COMPUTE_SHADER];
 
-        let compute_command_buffers = [self.compute_commands.buffers[self.current_frame as usize]];
-        let graphics_command_buffers = [self.graphics_commands.buffers[self.current_frame as usize]];
+        let compute_command_buffers = [self.compute_layer.commands.buffers[self.current_frame]];
+        let graphics_command_buffers = [self.graphics_commands.buffers[self.current_frame]];
 
         let compute_submit_i = vk::SubmitInfo {
             wait_semaphore_count: 0,
             p_wait_semaphores: compute_wait_semaphores.as_ptr(),
+            p_wait_dst_stage_mask: compute_wait_stages.as_ptr(),
             signal_semaphore_count: 1,
             p_signal_semaphores: compute_signal_semaphores.as_ptr(),
-            p_wait_dst_stage_mask: compute_wait_stages.as_ptr(),
             command_buffer_count: 1,
             p_command_buffers: compute_command_buffers.as_ptr(),
             ..Default::default()
@@ -179,9 +180,9 @@ impl Renderer {
         let graphics_submit_i = vk::SubmitInfo {
             wait_semaphore_count: 2,
             p_wait_semaphores: graphics_wait_semaphores.as_ptr(),
+            p_wait_dst_stage_mask: graphics_wait_stages.as_ptr(),
             signal_semaphore_count: 1,
             p_signal_semaphores: graphics_signal_semaphores.as_ptr(),
-            p_wait_dst_stage_mask: graphics_wait_stages.as_ptr(),
             command_buffer_count: 1,
             p_command_buffers: graphics_command_buffers.as_ptr(),
             ..Default::default()
@@ -198,7 +199,5 @@ impl Renderer {
             .image_indices(&present_indices);
 
         self.swapchain.swapchain_init.queue_present(self.device.queue_present.0, &present_i).unwrap();
-
-        println!("Image available semaphore: {:?}\nCompute finished semaphore: {:?}\nRender finished semaphore: {:?}\n", active_frame.image_available_semaphore.semaphore, active_frame.compute_finished_semaphore.semaphore, active_frame.render_finished_semaphore.semaphore);
     }
 }

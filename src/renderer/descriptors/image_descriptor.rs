@@ -90,7 +90,7 @@ impl ImageDescriptor {
 
         d.device.update_descriptor_sets(&write_sets, &[]);
 
-        let layout_transition_buffer = Commands::new(d, d.queue_compute.1, images.len() as u32);
+        let layout_transition_buffer = Commands::new(d, d.queue_compute.1, images.len());
 
         layout_transition_buffer.record_all(d, |i, b| {
             let subresource_range = vk::ImageSubresourceRange::builder()

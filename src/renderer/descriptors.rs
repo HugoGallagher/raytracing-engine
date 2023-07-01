@@ -3,6 +3,8 @@ pub mod uniform_descriptor;
 pub mod image_descriptor;
 pub mod sampler_descriptor;
 
+use std::marker::PhantomData;
+
 use ash::version::DeviceV1_0;
 use ash::vk;
 
