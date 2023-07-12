@@ -30,7 +30,7 @@ impl ComputePass {
             Some(size) => Some(PushConstant::new(size)),
             None => None
         };
-
+        
         let pipeline = ComputePipeline::new(c, d, descriptor_set_layout, push_constant_size, cs);
 
         ComputePass {

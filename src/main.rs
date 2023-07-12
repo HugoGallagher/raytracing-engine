@@ -1,6 +1,6 @@
 use engine::math::vec::Vec2;
 use engine::{window, game};
-use winit::event::{Event, VirtualKeyCode, WindowEvent};
+use winit::event::{Event, VirtualKeyCode, WindowEvent, DeviceEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 fn main() {
@@ -26,6 +26,11 @@ fn main() {
                         game.update_key(input.virtual_keycode.unwrap(), input.state);
                     }
                 },
+                Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
+                    if window.focused {
+                        game.mouse_delta = Vec2::new(delta.0 as f32, delta.1 as f32);
+                    }
+                }
                 Event::WindowEvent { event: WindowEvent::Focused(f), .. } => {
                     window.focused = f;
                 },

@@ -7,6 +7,7 @@ use crate::math::vec::Vec3;
 use crate::math::vec::Vec4;
 
 #[derive(Copy, Clone)]
+#[repr(C)]
 pub struct Tri {
     pub verts: [Vec4; 3],
     pub normal: Vec4,

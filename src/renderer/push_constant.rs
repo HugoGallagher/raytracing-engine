@@ -19,6 +19,8 @@ impl PushConstant {
     pub unsafe fn set_data<T>(&mut self, data: &T) {
         assert!(mem::size_of::<T>() <= 128, "Error: Push constant data type is larger than 128 bytes");
 
+        self.data.resize(mem::size_of::<T>(), 0);
+        
         let data_ptr = self.data.as_mut_ptr();
         
         ptr::copy(data as *const T as *mut u8, data_ptr, self.size);

@@ -28,7 +28,7 @@ impl ComputePipeline {
         let push_constant_ranges = match push_constant_size {
             Some(size) => {
                 vec![vk::PushConstantRange::builder()
-                    .size(16)
+                    .size(size as u32)
                     .offset(0)
                     .stage_flags(vk::ShaderStageFlags::COMPUTE)
                     .build()]

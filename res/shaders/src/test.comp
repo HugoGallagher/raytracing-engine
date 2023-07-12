@@ -3,11 +3,28 @@
 layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(push_constant) uniform push_constants {
-    vec4 col;
-} constants;
+    mat4 view;
+    vec3 pos;
+    int downscale;
+    int tri_count;
+} scene;
 
-layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
+struct tri {
+    vec3 verts[3];
+    vec3 normal;
+    vec3 col;
+    uint mesh_id;
+    uint a;
+    uint b;
+    uint c;
+};
+
+layout(std140, set = 0, binding = 0) readonly buffer Objects {
+    tri tris[];
+} objs;
+
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img;
 
 void main() {
-    imageStore(img, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(float(gl_GlobalInvocationID.x) / 1280, constants.col.x, float(gl_GlobalInvocationID.y) / 720, 1));
+    imageStore(img, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(float(gl_GlobalInvocationID.x) / 1280, 0, float(gl_GlobalInvocationID.y) / 720, 1));
 }

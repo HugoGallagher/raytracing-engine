@@ -3,8 +3,6 @@ pub mod uniform_descriptor;
 pub mod image_descriptor;
 pub mod sampler_descriptor;
 
-use std::marker::PhantomData;
-
 use ash::version::DeviceV1_0;
 use ash::vk;
 
@@ -15,19 +13,28 @@ use crate::renderer::descriptors::storage_descriptor::StorageDescriptorBuilder;
 use crate::renderer::descriptors::image_descriptor::ImageDescriptorBuilder;
 use crate::renderer::descriptors::sampler_descriptor::SamplerDescriptorBuilder;
 
-pub struct DescriptorsBuilder<'a> {
-    pub count: Option<usize>,
-    pub stage: Option<vk::ShaderStageFlags>,
-    pub uniform_builders: Vec<(u32, UniformDescriptorBuilder<'a>)>,
-    pub storage_builders: Vec<(u32, StorageDescriptorBuilder)>,
-    pub image_builders: Vec<(u32, ImageDescriptorBuilder<'a>)>,
-    pub sampler_builders: Vec<(u32, SamplerDescriptorBuilder<'a>)>,
-
-    next_binding: u32,
+#[derive(Copy, Clone)]
+pub enum DescriptorBindingReference {
+    Uniform(usize),
+    Storage(usize),
+    Image(usize),
+    Sampler(usize),
 }
 
-impl <'a> DescriptorsBuilder<'a> {
-    pub fn new() -> DescriptorsBuilder<'a> {
+pub struct DescriptorsBuilder {
+    pub count: Option<usize>,
+    pub stage: Option<vk::ShaderStageFlags>,
+    pub uniform_builders: Vec<(u32, UniformDescriptorBuilder)>,
+    pub storage_builders: Vec<(u32, StorageDescriptorBuilder)>,
+    pub image_builders: Vec<(u32, ImageDescriptorBuilder)>,
+    pub sampler_builders: Vec<(u32, SamplerDescriptorBuilder)>,
+
+    next_binding: u32,
+    pub binding_references: Vec<DescriptorBindingReference>,
+}
+
+impl  DescriptorsBuilder {
+    pub fn new() -> DescriptorsBuilder {
         DescriptorsBuilder {
             count: None,
             stage: None,
@@ -36,94 +43,58 @@ impl <'a> DescriptorsBuilder<'a> {
             image_builders: Vec::<(u32, ImageDescriptorBuilder)>::new(),
             sampler_builders: Vec::<(u32, SamplerDescriptorBuilder)>::new(),
             next_binding: 0,
+            binding_references: Vec::<DescriptorBindingReference>::new(),
         }
     }
 
-    pub fn count(&self, count: usize) -> DescriptorsBuilder {
-        DescriptorsBuilder {
-            count: Some(count),
-            stage: self.stage,
-            uniform_builders: self.uniform_builders.clone(),
-            storage_builders: self.storage_builders.clone(),
-            image_builders: self.image_builders.clone(),
-            sampler_builders: self.sampler_builders.clone(),
-            next_binding: self.next_binding,
-        }
+    pub fn count(mut self, count: usize) -> DescriptorsBuilder {
+        self.count = Some(count);
+        
+        self
     }
 
-    pub fn stage(&self, stage: vk::ShaderStageFlags) -> DescriptorsBuilder {
-        DescriptorsBuilder {
-            count: self.count,
-            stage: Some(stage),
-            uniform_builders: self.uniform_builders.clone(),
-            storage_builders: self.storage_builders.clone(),
-            image_builders: self.image_builders.clone(),
-            sampler_builders: self.sampler_builders.clone(),
-            next_binding: self.next_binding,
-        }
+    pub fn stage(mut self, stage: vk::ShaderStageFlags) -> DescriptorsBuilder {
+        self.stage = Some(stage);
+        self
     }
 
-    pub fn add_uniform_builder(&mut self, builder: UniformDescriptorBuilder<'a>) -> DescriptorsBuilder {
+    pub fn add_uniform_builder(mut self, builder: UniformDescriptorBuilder) -> DescriptorsBuilder {
+        self.binding_references.push(DescriptorBindingReference::Uniform(self.uniform_builders.len()));
         self.uniform_builders.push((self.next_binding, builder));
+
         self.next_binding += 1;
 
-        DescriptorsBuilder {
-            count: self.count,
-            stage: self.stage,
-            uniform_builders: self.uniform_builders.clone(),
-            storage_builders: self.storage_builders.clone(),
-            image_builders: self.image_builders.clone(),
-            sampler_builders: self.sampler_builders.clone(),
-            next_binding: self.next_binding,
-        }
+        self
     }
 
-    pub fn add_storage_builder(&mut self, builder: StorageDescriptorBuilder) -> DescriptorsBuilder {
+    pub fn add_storage_builder(mut self, builder: StorageDescriptorBuilder) -> DescriptorsBuilder {
+        self.binding_references.push(DescriptorBindingReference::Storage(self.storage_builders.len()));
         self.storage_builders.push((self.next_binding, builder));
+
         self.next_binding += 1;
 
-        DescriptorsBuilder {
-            count: self.count,
-            stage: self.stage,
-            uniform_builders: self.uniform_builders.clone(),
-            storage_builders: self.storage_builders.clone(),
-            image_builders: self.image_builders.clone(),
-            sampler_builders: self.sampler_builders.clone(),
-            next_binding: self.next_binding,
-        }
+        self
     }
 
-    pub fn add_image_builder(&mut self, builder: ImageDescriptorBuilder<'a>) -> DescriptorsBuilder {
+    pub fn add_image_builder(mut self, builder: ImageDescriptorBuilder) -> DescriptorsBuilder {
+        self.binding_references.push(DescriptorBindingReference::Image(self.image_builders.len()));
         self.image_builders.push((self.next_binding, builder));
+
         self.next_binding += 1;
 
-        DescriptorsBuilder {
-            count: self.count,
-            stage: self.stage,
-            uniform_builders: self.uniform_builders.clone(),
-            storage_builders: self.storage_builders.clone(),
-            image_builders: self.image_builders.clone(),
-            sampler_builders: self.sampler_builders.clone(),
-            next_binding: self.next_binding,
-        }
+        self
     }
 
-    pub fn add_sampler_builder(&mut self, builder: SamplerDescriptorBuilder<'a>) -> DescriptorsBuilder {
+    pub fn add_sampler_builder(mut self, builder: SamplerDescriptorBuilder) -> DescriptorsBuilder {
+        self.binding_references.push(DescriptorBindingReference::Sampler(self.sampler_builders.len()));
         self.sampler_builders.push((self.next_binding, builder));
+
         self.next_binding += 1;
 
-        DescriptorsBuilder {
-            count: self.count,
-            stage: self.stage,
-            uniform_builders: self.uniform_builders.clone(),
-            storage_builders: self.storage_builders.clone(),
-            image_builders: self.image_builders.clone(),
-            sampler_builders: self.sampler_builders.clone(),
-            next_binding: self.next_binding,
-        }
+        self
     }
 
-    pub unsafe fn build(&self, c: &Core, d: &Device) -> Descriptors {
+    pub unsafe fn build(self, c: &Core, d: &Device) -> Descriptors {
         Descriptors::new(c, d, self)
     }
 }
@@ -137,10 +108,12 @@ pub struct Descriptors {
     pub ssbos: Vec<storage_descriptor::StorageDescriptor>,
     pub images: Vec<image_descriptor::ImageDescriptor>,
     pub samplers: Vec<sampler_descriptor::SamplerDescriptor>,
+
+    pub binding_references: Vec<DescriptorBindingReference>,
 }
 
 impl Descriptors {
-    pub unsafe fn new(c: &Core, d: &Device, builder: &DescriptorsBuilder) -> Descriptors {
+    pub unsafe fn new(c: &Core, d: &Device, builder: DescriptorsBuilder) -> Descriptors {
         let mut layout_bindings = Vec::<vk::DescriptorSetLayoutBinding>::new();
 
         for descriptor_builder in &builder.uniform_builders {
@@ -262,6 +235,8 @@ impl Descriptors {
             ssbos,
             images,
             samplers,
+
+            binding_references: builder.binding_references.clone(),
         };
 
         for descriptor_builder in &builder.uniform_builders {
@@ -285,5 +260,9 @@ impl Descriptors {
 
     pub unsafe fn bind(&self, d: &Device, b: &vk::CommandBuffer, bp: vk::PipelineBindPoint, pl: &vk::PipelineLayout, i: usize) {
         d.device.cmd_bind_descriptor_sets(*b, bp, *pl, 0, &[self.sets[i]], &[]);
+    }
+
+    pub fn fill(&self, d: &Device, binding: u32) {
+
     }
 }

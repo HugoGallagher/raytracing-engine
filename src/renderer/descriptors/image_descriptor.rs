@@ -7,69 +7,38 @@ use crate::renderer::image::{Image2D, Image2DBuilder};
 use crate::renderer::commands::Commands;
 use crate::renderer::descriptors::Descriptors;
 
-use super::sampler_descriptor::{SamplerDescriptor, self};
-
-#[derive(Copy, Clone)]
-pub struct ImageDescriptorBuilder<'a> {
-    image_count: usize,
-    image_builder: Image2DBuilder,
-    images: Option<&'a Vec<Image2D>>,
+struct ImageData {
+    image: vk::Image,
+    view: vk::ImageView,
 }
 
-pub struct ImageDescriptor {
-    pub images: Vec<Image2D>,
+pub struct ImageDescriptorBuilder {
+    image_datas: Option<Vec<ImageData>>,
 }
 
-impl <'a> ImageDescriptorBuilder<'a> {
-    pub fn new() -> ImageDescriptorBuilder<'a> {
+pub struct ImageDescriptor {}
+
+impl  ImageDescriptorBuilder {
+    pub fn new() -> ImageDescriptorBuilder {
         ImageDescriptorBuilder {
-            image_count: 0,
-            image_builder: Image2DBuilder::new(),
-            images: None,
+            image_datas: None,
         }
     }
 
-    pub fn image_count(&self, image_count: usize) -> ImageDescriptorBuilder<'a> {
+    pub fn images(&self, images: &Vec<Image2D>) -> ImageDescriptorBuilder {
+        let image_datas = images.iter().map(|image| { ImageData { image: image.image, view: image.view} }).collect();
         ImageDescriptorBuilder {
-            image_count: image_count,
-            image_builder: self.image_builder,
-            images: self.images,
-        }
-    }
-
-    pub fn image_builder(&self, image_builder: Image2DBuilder) -> ImageDescriptorBuilder<'a> {
-        ImageDescriptorBuilder {
-            image_count: self.image_count,
-            image_builder: image_builder,
-            images: self.images,
-        }
-    }
-
-    pub fn images(&self, images: &'a Vec<Image2D>) -> ImageDescriptorBuilder<'a> {
-        ImageDescriptorBuilder {
-            image_count: self.image_count,
-            image_builder: self.image_builder,
-            images: Some(images),
+            image_datas: Some(image_datas),
         }
     }
 
     pub unsafe fn build(&self, c: &Core, d: &Device, binding: u32, sets: &Vec<vk::DescriptorSet>) -> ImageDescriptor {
-        if self.images.is_none() {
-            let mut images = Vec::<Image2D>::new();
-
-            for _ in 0..self.image_count {
-                images.push(self.image_builder.build(c, d));
-            };
-
-            ImageDescriptor::new(c, d, binding, &images, sets)
-        } else {
-            ImageDescriptor::new(c, d, binding, self.images.unwrap(), sets)
-        }
+        ImageDescriptor::new(c, d, binding, &self.image_datas.as_ref().expect("Error: Image descriptor builder has no images"), sets)
     }
 }
 
 impl ImageDescriptor {
-    pub unsafe fn new(c: &Core, d: &Device, binding: u32, images: &Vec<Image2D>, sets: &Vec<vk::DescriptorSet>) -> ImageDescriptor {
+    unsafe fn new(c: &Core, d: &Device, binding: u32, images: &Vec<ImageData>, sets: &Vec<vk::DescriptorSet>) -> ImageDescriptor {
         let mut write_sets = Vec::<vk::WriteDescriptorSet>::new();
 
         for i in 0..images.len() {
@@ -118,8 +87,6 @@ impl ImageDescriptor {
         d.device.queue_submit(d.queue_compute.0, &submit_is, vk::Fence::null()).unwrap();
         d.device.queue_wait_idle(d.queue_compute.0).unwrap();
 
-        ImageDescriptor {
-            images: images.clone(),
-        }
+        ImageDescriptor {}
     }
 }

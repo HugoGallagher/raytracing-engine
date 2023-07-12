@@ -8,7 +8,7 @@ use crate::renderer::core::Core;
 use crate::renderer::device::Device;
 use crate::renderer::swapchain::Swapchain;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Buffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,

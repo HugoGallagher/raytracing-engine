@@ -17,8 +17,8 @@ impl Window {
             .build(el)
             .unwrap();
 
-        //window.set_cursor_grab(true).unwrap();
-        //window.set_cursor_visible(false);
+        window.set_cursor_grab(true).unwrap();
+        window.set_cursor_visible(false);
 
         Window {
             window: window,

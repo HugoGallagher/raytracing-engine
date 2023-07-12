@@ -8,37 +8,42 @@ use crate::renderer::sampler::Sampler;
 use crate::renderer::descriptors::Descriptors;
 use crate::renderer::swapchain::Swapchain;
 
+struct ImageData {
+    image: vk::Image,
+    view: vk::ImageView,
+}
+
 pub struct SamplerDescriptor {
     pub samplers: Vec<Sampler>,
 }
 
-#[derive(Copy, Clone)]
-pub struct SamplerDescriptorBuilder<'a> {
-    images: Option<&'a Vec<Image2D>>,
+pub struct SamplerDescriptorBuilder {
+    image_datas: Option<Vec<ImageData>>,
 }
 
-impl <'a> SamplerDescriptorBuilder<'a> {
-    pub fn new() -> SamplerDescriptorBuilder<'a> {
+impl SamplerDescriptorBuilder {
+    pub fn new() -> SamplerDescriptorBuilder {
         SamplerDescriptorBuilder {
-            images: None,
+            image_datas: None,
         }
     }
 
-    pub fn images(&self, images: &'a Vec<Image2D>) -> SamplerDescriptorBuilder<'a> {
+    pub fn images(&self, images: &Vec<Image2D>) -> SamplerDescriptorBuilder {
+        let image_datas = images.iter().map(|image| { ImageData { image: image.image, view: image.view} }).collect();
         SamplerDescriptorBuilder {
-            images: Some(images),
+            image_datas: Some(image_datas),
         }
     }
 
     pub unsafe fn build(&self, c: &Core, d: &Device, binding: u32, sets: &Vec<vk::DescriptorSet>) -> SamplerDescriptor {
-        if self.images.is_none() {
+        if self.image_datas.is_none() {
             panic!("Error: Sampler descriptor builder has no images");
         }
         
         let mut samplers = Vec::<Sampler>::new();
 
-        for image in self.images.unwrap() {
-            samplers.push(Sampler::new(c, d, image.view));
+        for image_data in self.image_datas.as_ref().unwrap() {
+            samplers.push(Sampler::new(c, d, image_data.view));
         }
 
         SamplerDescriptor::new(c, d, binding, &samplers, sets)

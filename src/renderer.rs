@@ -19,27 +19,35 @@ mod frame;
 mod mesh;
 mod push_constant;
 
-use std::mem;
+use std::{mem, ffi::c_void};
 
 use ash::{vk, version::DeviceV1_0};
 
-use crate::{window::Window, math::vec::{Vec4, Vec3}, renderer::descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}};
+use crate::{window::Window, math::{vec::{Vec4, Vec3}, mat::Mat4}, renderer::{descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}, mesh::Tri}};
+
+#[repr(C)]
+pub struct PushConstantData {
+    pub view: Mat4,
+    pub pos: Vec3,
+    pub downscale: u32,
+    pub tri_count: u32,
+}
 
 pub struct Renderer {
     core: core::Core,
     device: device::Device,
     swapchain: swapchain::Swapchain,
 
-    images: Vec<image::Image2D>,
-
-    push_constant: Vec4,
-    compute_layer: compute_layer::ComputeLayer,
+    pub push_constant: PushConstantData,
+    pub compute_layer: compute_layer::ComputeLayer,
     
     graphics_descriptors: descriptors::Descriptors,
     graphics_pipeline: graphics_pipeline::GraphicsPipeline,
     graphics_commands: commands::Commands,
 
     frames: Vec<frame::Frame>,
+
+    tris: Vec<Tri>,
 
     frames_in_flight: usize,
     current_frame: usize,
@@ -49,32 +57,55 @@ impl Renderer {
     pub unsafe fn new(w: &Window) -> Renderer {
         const FRAMES_IN_FLIGHT: u32 = 2;
 
+        const MAX_TRIS: usize = 8192;
+
         let core = core::Core::new(true, w);
         let device = device::Device::new(&core, w);
         let swapchain = swapchain::Swapchain::new(&core, &device);
 
-        let images = image::Image2DBuilder::new()
+        let mut compute_layer = compute_layer::ComputeLayer::new(&core, &device, FRAMES_IN_FLIGHT as usize);
+
+        let buffer_builder = buffer::BufferBuilder::new()
+            .size(mem::size_of::<Tri>() * MAX_TRIS)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .usage(vk::BufferUsageFlags::STORAGE_BUFFER);
+
+        let image_builder = image::Image2DBuilder::new()
             .width(1280)
             .height(720)
             .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED)
-            .format(vk::Format::R8G8B8A8_UNORM)
-            .build_many(&core, &device, FRAMES_IN_FLIGHT);
+            .format(vk::Format::R8G8B8A8_UNORM);
+        
+        compute_layer.add_buffer(&core, &device, "tris", buffer_builder);
+        compute_layer.add_image(&core, &device, "output", image_builder);
 
         let image_descriptor_builder = descriptors::image_descriptor::ImageDescriptorBuilder::new()
-            .images(&images);
+            .images(&compute_layer.images.get("output").unwrap());
             
         let sampler_descriptor_builder = descriptors::sampler_descriptor::SamplerDescriptorBuilder::new()
-            .images(&images);
+            .images(&compute_layer.images.get("output").unwrap());
 
-        let compute_descriptors_builder = descriptors::DescriptorsBuilder::new();
-        let compute_descriptors_builder = compute_descriptors_builder.count(FRAMES_IN_FLIGHT as usize);
-        let mut compute_descriptors_builder = compute_descriptors_builder.stage(vk::ShaderStageFlags::COMPUTE);
-        let compute_descriptors_builder = compute_descriptors_builder.add_image_builder(image_descriptor_builder);
+        let storage_descriptor_builder = descriptors::storage_descriptor::StorageDescriptorBuilder::new()
+            .buffers(&compute_layer.buffers.get("tris").unwrap());
 
-        let push_constant = Vec4::zero();
+        let compute_descriptors_builder = descriptors::DescriptorsBuilder::new()
+            .count(FRAMES_IN_FLIGHT as usize)
+            .stage(vk::ShaderStageFlags::COMPUTE)
+            .add_storage_builder(storage_descriptor_builder)
+            .add_image_builder(image_descriptor_builder);
 
-        let mut compute_layer = compute_layer::ComputeLayer::new(&core, &device, FRAMES_IN_FLIGHT as usize);
-        compute_layer.add_pass(&core, &device, Some(compute_descriptors_builder), Some(mem::size_of::<Vec4>()), "test.comp", (1280 / 16, 720 / 16, 1));
+        let mut tris = Vec::<Tri>::with_capacity(MAX_TRIS);
+        
+        mesh::parse_obj(&mut tris, "res/meshes/asdf.obj");
+
+        let push_constant = PushConstantData {
+            view: Mat4::identity(),
+            pos: Vec3::zero(),
+            downscale: 1,
+            tri_count: tris.len() as u32,
+        };
+
+        compute_layer.add_pass(&core, &device, Some(compute_descriptors_builder), Some(mem::size_of::<PushConstantData>()), "raytracer.comp", (1280 / 16, 720 / 16, 1));
 
         let graphics_descriptors = descriptors::DescriptorsBuilder::new()
             .count(FRAMES_IN_FLIGHT as usize)
@@ -96,8 +127,6 @@ impl Renderer {
             device,
             swapchain,
 
-            images,
-
             push_constant,
             compute_layer,
 
@@ -106,6 +135,7 @@ impl Renderer {
             graphics_commands,
 
             frames,
+            tris,
 
             frames_in_flight: FRAMES_IN_FLIGHT as usize,
             current_frame: 0,
@@ -124,9 +154,9 @@ impl Renderer {
         let present_indices = [present_index as u32];
         
         self.compute_layer.fill_push_constant(0, &self.push_constant);
-        self.compute_layer.record_one(&self.device, self.current_frame);
+        self.compute_layer.buffers.get("tris").unwrap()[self.current_frame].fill(&self.device, self.tris.as_ptr() as *const c_void, self.tris.len() * mem::size_of::<Tri>());
 
-        self.push_constant.x = (self.push_constant.x + 0.001).clamp(0.0, 1.0);
+        self.compute_layer.record_one(&self.device, self.current_frame);
 
         self.graphics_commands.record_one(&self.device, self.current_frame as usize, |b| {
             let clear_values = [vk::ClearValue { color: vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}}];

@@ -6,57 +6,39 @@ use crate::renderer::device::Device;
 use crate::renderer::buffer::{Buffer, BufferBuilder};
 
 #[derive(Copy, Clone)]
-pub struct StorageDescriptorBuilder {
-    buffer_count: usize,
-    buffer_builder: BufferBuilder,
+struct BufferData {
+    pub buffer: vk::Buffer,
+    pub size: u64,
 }
 
-pub struct StorageDescriptor {
-    pub buffers: Vec<Buffer>,
+pub struct StorageDescriptorBuilder {
+    buffer_datas: Option<Vec<BufferData>>,
 }
+
+#[derive(Debug)]
+pub struct StorageDescriptor {}
 
 impl StorageDescriptorBuilder {
     pub fn new() -> StorageDescriptorBuilder {
         StorageDescriptorBuilder {
-            buffer_count: 0,
-            buffer_builder: BufferBuilder::new().usage(vk::BufferUsageFlags::STORAGE_BUFFER),
+            buffer_datas: None,
         }
     }
 
-    pub fn buffer_count(&self, buffer_count: usize) -> StorageDescriptorBuilder {
+    pub fn buffers(&self, buffers: &Vec<Buffer>) -> StorageDescriptorBuilder {
+        let buffer_datas = buffers.iter().map(|buffer| { BufferData { buffer: buffer.buffer, size: buffer.size} }).collect();
         StorageDescriptorBuilder {
-            buffer_count: buffer_count,
-            buffer_builder: self.buffer_builder,
-        }
-    }
-
-    pub fn buffer_sharing_mode(&self, sharing_mode: vk::SharingMode) -> StorageDescriptorBuilder {
-        StorageDescriptorBuilder {
-            buffer_count: self.buffer_count,
-            buffer_builder: self.buffer_builder.sharing_mode(sharing_mode),
-        }
-    }
-
-    pub fn buffer_size(&self, size: usize) -> StorageDescriptorBuilder {
-        StorageDescriptorBuilder {
-            buffer_count: self.buffer_count,
-            buffer_builder: self.buffer_builder.size(size),
+            buffer_datas: Some(buffer_datas),
         }
     }
 
     pub unsafe fn build(&self, c: &Core, d: &Device, binding: u32, sets: &Vec<vk::DescriptorSet>) -> StorageDescriptor {
-        let mut buffers = Vec::<Buffer>::new();
-
-        for _ in 0..self.buffer_count {
-            buffers.push(self.buffer_builder.build(c, d));
-        }
-        
-        StorageDescriptor::new(d, binding, &buffers, &sets)
+        StorageDescriptor::new(d, binding, self.buffer_datas.as_ref().expect("Error: Storage descriptor builder has no buffers"), sets)
     }
 }
 
 impl StorageDescriptor {
-    pub unsafe fn new(d: &Device, binding: u32, buffers: &Vec<Buffer>, sets: &Vec<vk::DescriptorSet>) -> StorageDescriptor {
+    unsafe fn new(d: &Device, binding: u32, buffers: &Vec<BufferData>, sets: &Vec<vk::DescriptorSet>) -> StorageDescriptor {
         let mut write_sets = Vec::<vk::WriteDescriptorSet>::new();
 
         for i in 0..buffers.len() {
@@ -77,8 +59,6 @@ impl StorageDescriptor {
 
         d.device.update_descriptor_sets(&write_sets, &[]);
 
-        StorageDescriptor {
-            buffers: buffers.clone(),
-        }
+        StorageDescriptor {}
     }
 }
