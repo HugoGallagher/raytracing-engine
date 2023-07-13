@@ -22,8 +22,10 @@ mod push_constant;
 use std::{mem, ffi::c_void};
 
 use ash::vk;
+use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
+use winit::window::Window;
 
-use crate::{window::Window, math::{vec::{Vec4, Vec3}, mat::Mat4}, renderer::{descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}, mesh::Tri}};
+use crate::{math::{vec::{Vec4, Vec3}, mat::Mat4}, renderer::{descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}, mesh::Tri}};
 
 #[repr(C)]
 pub struct PushConstantData {
@@ -54,7 +56,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub unsafe fn new(w: &Window) -> Renderer {
+    pub unsafe fn new(window: RawWindowHandle, display: RawDisplayHandle) -> Renderer {
         const FRAMES_IN_FLIGHT: u32 = 2;
 
         const MAX_TRIS: usize = 8192;
@@ -70,8 +72,8 @@ impl Renderer {
             tri_count: tris.len() as u32,
         };
 
-        let core = core::Core::new(false, w);
-        let device = device::Device::new(&core, w);
+        let core = core::Core::new(false, display);
+        let device = device::Device::new(&core, window, display);
         let swapchain = swapchain::Swapchain::new(&core, &device);
 
         let mut compute_layer = compute_layer::ComputeLayer::new(&core, &device, FRAMES_IN_FLIGHT as usize);

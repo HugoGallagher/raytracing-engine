@@ -1,11 +1,14 @@
+use std::sync::mpsc;
+use std::thread;
+
 use crate::math::{vec::{Vec2, Vec3, Vec4}, mat::Mat4};
-use crate::window::Window;
 
 use crate::renderer::Renderer;
 use crate::frametime::Frametime;
 
 use std::collections::HashMap;
-use winit::event::{VirtualKeyCode, ElementState};
+use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use winit::{event::{VirtualKeyCode, ElementState}, window::Window};
 
 pub struct Game {
     pub renderer: Renderer,
@@ -28,9 +31,9 @@ pub struct Game {
 }
 
 impl Game {
-    pub unsafe fn new(w: &Window, r: Vec2) -> Game {
+    pub unsafe fn new(window: RawWindowHandle, display: RawDisplayHandle, r: Vec2) -> Game {
         Game {
-            renderer: Renderer::new(w),
+            renderer: Renderer::new(window, display),
             keys: HashMap::new(),
             screen_res: r,
 
@@ -57,8 +60,6 @@ impl Game {
 
         self.draw();
         self.frametime.set("Draw");
-
-        //println!("{}", self.frametime);
     }
 
     pub fn update(&mut self) {

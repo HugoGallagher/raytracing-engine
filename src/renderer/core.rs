@@ -1,8 +1,7 @@
 use ash::vk::DebugUtilsMessageSeverityFlagsEXT;
 use ash::{vk, Entry, extensions::ext::DebugUtils};
-use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle};
-
-use crate::window::Window;
+use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle, RawWindowHandle, RawDisplayHandle};
+use winit::window::Window;
 
 use std::borrow::Cow;
 use std::ffi::{CStr, CString};
@@ -48,7 +47,7 @@ pub struct Core {
 }
 
 impl Core {
-    pub unsafe fn new(validation_enabled: bool, w: &Window) -> Core {
+    pub unsafe fn new(validation_enabled: bool, display: RawDisplayHandle, ) -> Core {
         //let entry = ash::Entry::new().unwrap();
         let entry = ash::Entry::linked();
 
@@ -57,7 +56,7 @@ impl Core {
         let layer_names = if validation_enabled { vec![CString::new("VK_LAYER_KHRONOS_validation").unwrap()] } else { vec![] } ;
         let layer_names_raw: Vec<*const i8> = layer_names.iter().map(|layer| layer.as_ptr()).collect();
 
-        let extension_names = ash_window::enumerate_required_extensions(w.window.raw_display_handle()).unwrap();
+        let extension_names = ash_window::enumerate_required_extensions(display).unwrap();
         let mut extension_names_raw: Vec<*const i8> = extension_names.iter().map(|extension| *extension).collect();
         //let mut extension_names_raw: Vec<*const i8> = extension_names.iter().map(|extension| extension.as_ptr()).collect();
 

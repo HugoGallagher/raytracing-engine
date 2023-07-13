@@ -1,7 +1,7 @@
 use ash::vk;
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle, RawDisplayHandle};
+use winit::window::Window;
 
-use crate::window::Window;
 use crate::renderer::core::Core;
 
 pub struct Device {
@@ -23,9 +23,9 @@ pub struct Device {
 }
 
 impl Device {
-    pub unsafe fn new(c: &Core, w: &Window) -> Device {
+    pub unsafe fn new(c: &Core, window: RawWindowHandle, display: RawDisplayHandle) -> Device {
         let surface_init = ash::extensions::khr::Surface::new(&c.entry, &c.instance);
-        let surface = ash_window::create_surface(&c.entry, &c.instance, w.window.raw_display_handle(), w.window.raw_window_handle(), None).unwrap();
+        let surface = ash_window::create_surface(&c.entry, &c.instance, display, window, None).unwrap();
 
         let available_physical_devices = c.instance.enumerate_physical_devices().unwrap();
 
