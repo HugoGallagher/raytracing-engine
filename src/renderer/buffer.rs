@@ -1,6 +1,5 @@
 use std::ffi::c_void;
 
-use ash::version::{InstanceV1_0, DeviceV1_0};
 use ash::vk;
 
 use crate::math::vec::Vec2;

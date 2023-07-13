@@ -21,7 +21,7 @@ mod push_constant;
 
 use std::{mem, ffi::c_void};
 
-use ash::{vk, version::DeviceV1_0};
+use ash::vk;
 
 use crate::{window::Window, math::{vec::{Vec4, Vec3}, mat::Mat4}, renderer::{descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}, mesh::Tri}};
 
@@ -59,7 +59,18 @@ impl Renderer {
 
         const MAX_TRIS: usize = 8192;
 
-        let core = core::Core::new(true, w);
+        let mut tris = Vec::<Tri>::with_capacity(MAX_TRIS);
+        
+        mesh::parse_obj(&mut tris, "res/meshes/asdf.obj");
+
+        let push_constant = PushConstantData {
+            view: Mat4::identity(),
+            pos: Vec3::zero(),
+            downscale: 4,
+            tri_count: tris.len() as u32,
+        };
+
+        let core = core::Core::new(false, w);
         let device = device::Device::new(&core, w);
         let swapchain = swapchain::Swapchain::new(&core, &device);
 
@@ -71,8 +82,8 @@ impl Renderer {
             .usage(vk::BufferUsageFlags::STORAGE_BUFFER);
 
         let image_builder = image::Image2DBuilder::new()
-            .width(1280)
-            .height(720)
+            .width(1280 / push_constant.downscale)
+            .height(720 / push_constant.downscale)
             .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED)
             .format(vk::Format::R8G8B8A8_UNORM);
         
@@ -94,18 +105,7 @@ impl Renderer {
             .add_storage_builder(storage_descriptor_builder)
             .add_image_builder(image_descriptor_builder);
 
-        let mut tris = Vec::<Tri>::with_capacity(MAX_TRIS);
-        
-        mesh::parse_obj(&mut tris, "res/meshes/asdf.obj");
-
-        let push_constant = PushConstantData {
-            view: Mat4::identity(),
-            pos: Vec3::zero(),
-            downscale: 1,
-            tri_count: tris.len() as u32,
-        };
-
-        compute_layer.add_pass(&core, &device, Some(compute_descriptors_builder), Some(mem::size_of::<PushConstantData>()), "raytracer.comp", (1280 / 16, 720 / 16, 1));
+        compute_layer.add_pass(&core, &device, Some(compute_descriptors_builder), Some(mem::size_of::<PushConstantData>()), "raytracer.comp", ((1280 / 16) / push_constant.downscale + 1, (720 / 16) / push_constant.downscale + 1, 1));
 
         let graphics_descriptors = descriptors::DescriptorsBuilder::new()
             .count(FRAMES_IN_FLIGHT as usize)

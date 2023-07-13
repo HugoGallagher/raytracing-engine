@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::{ffi::CString, io::Cursor};
 
-use ash::{util::read_spv, version::DeviceV1_0, vk};
+use ash::vk;
 
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;

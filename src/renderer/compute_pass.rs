@@ -1,5 +1,4 @@
 use ash::vk;
-use ash::version::DeviceV1_0;
 
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;

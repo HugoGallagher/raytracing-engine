@@ -19,7 +19,7 @@ fn main() {
                 Event::WindowEvent { event: WindowEvent::KeyboardInput { input, .. }, .. } => {
                     if input.virtual_keycode.is_some() {
                         if input.virtual_keycode.unwrap() == VirtualKeyCode::Escape {
-                            window.window.set_cursor_grab(false).unwrap();
+                            window.window.set_cursor_grab(winit::window::CursorGrabMode::Confined).unwrap();
                             window.window.set_cursor_visible(true);
                         }
 
@@ -28,7 +28,7 @@ fn main() {
                 },
                 Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
                     if window.focused {
-                        game.mouse_delta = Vec2::new(delta.0 as f32, delta.1 as f32);
+                        game.mouse_delta = game.mouse_delta + Vec2::new(delta.0 as f32, delta.1 as f32);
                     }
                 }
                 Event::WindowEvent { event: WindowEvent::Focused(f), .. } => {

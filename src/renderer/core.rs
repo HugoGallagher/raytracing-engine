@@ -1,5 +1,6 @@
 use ash::vk::DebugUtilsMessageSeverityFlagsEXT;
-use ash::{vk, extensions::ext::DebugUtils, version::EntryV1_0};
+use ash::{vk, Entry, extensions::ext::DebugUtils};
+use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle};
 
 use crate::window::Window;
 
@@ -48,15 +49,17 @@ pub struct Core {
 
 impl Core {
     pub unsafe fn new(validation_enabled: bool, w: &Window) -> Core {
-        let entry = ash::Entry::new().unwrap();
+        //let entry = ash::Entry::new().unwrap();
+        let entry = ash::Entry::linked();
 
         let name = CString::new("Renderer").unwrap();
 
         let layer_names = if validation_enabled { vec![CString::new("VK_LAYER_KHRONOS_validation").unwrap()] } else { vec![] } ;
         let layer_names_raw: Vec<*const i8> = layer_names.iter().map(|layer| layer.as_ptr()).collect();
 
-        let extension_names = ash_window::enumerate_required_extensions(&w.window).unwrap();
-        let mut extension_names_raw: Vec<*const i8> = extension_names.iter().map(|extension| extension.as_ptr()).collect();
+        let extension_names = ash_window::enumerate_required_extensions(w.window.raw_display_handle()).unwrap();
+        let mut extension_names_raw: Vec<*const i8> = extension_names.iter().map(|extension| *extension).collect();
+        //let mut extension_names_raw: Vec<*const i8> = extension_names.iter().map(|extension| extension.as_ptr()).collect();
 
         extension_names_raw.push(DebugUtils::name().as_ptr());
 
@@ -73,7 +76,7 @@ impl Core {
 
         let debug_ci = vk::DebugUtilsMessengerCreateInfoEXT::builder()
             .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::ERROR)
-            .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
+            .message_type(vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION)
             .pfn_user_callback(Some(debug_callback_fn));
 
         let debug_utils_init = DebugUtils::new(&entry, &instance);

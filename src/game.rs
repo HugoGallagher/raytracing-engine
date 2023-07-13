@@ -45,7 +45,7 @@ impl Game {
             vel: Vec3::new(0.0, 0.0, 0.0),
             rot: Vec3::new(0.0, 0.0, 0.0),
 
-            sens: 0.01,
+            sens: 0.001,
         }
     }
 
