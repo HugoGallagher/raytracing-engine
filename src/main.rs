@@ -71,7 +71,7 @@ fn main() {
                 Event::WindowEvent { event: WindowEvent::KeyboardInput { input, .. }, .. } => {
                     if input.virtual_keycode.is_some() {
                         if input.virtual_keycode.unwrap() == VirtualKeyCode::Escape {
-                            window.window.set_cursor_grab(winit::window::CursorGrabMode::Confined).unwrap();
+                            window.window.set_cursor_grab(winit::window::CursorGrabMode::None).unwrap();
                             window.window.set_cursor_visible(true);
                         }
 
@@ -88,9 +88,6 @@ fn main() {
                 }
                 Event::WindowEvent { event: WindowEvent::Focused(f), .. } => {
                     window.focused = f;
-                },
-                Event::MainEventsCleared => {
-                    //game.main_loop();
                 },
                 _ => ()
             };

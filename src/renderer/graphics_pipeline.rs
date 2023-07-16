@@ -9,6 +9,7 @@ use crate::renderer::swapchain::Swapchain;
 use crate::renderer::shader::Shader;
 use crate::renderer::image::Image2D;
 use crate::renderer::push_constant::PushConstant;
+use crate::renderer::vertex_buffer::VertexBuffer;
 
 pub struct GraphicsPipeline {
     pub pipeline: vk::Pipeline,
@@ -20,7 +21,7 @@ pub struct GraphicsPipeline {
 }
 
 impl GraphicsPipeline {
-    pub unsafe fn new(c: &Core, d: &Device, target_res: (u32, u32), descriptor_set_layout: Option<vk::DescriptorSetLayout>, push_constant: Option<&PushConstant>, vs: &str, fs: &str) -> GraphicsPipeline {
+    pub unsafe fn new(c: &Core, d: &Device, target_res: (u32, u32), vertex_buffer: Option<&VertexBuffer>, descriptor_set_layout: Option<vk::DescriptorSetLayout>, push_constant: Option<&PushConstant>, vs: &str, fs: &str) -> GraphicsPipeline {
         let vert_shader = Shader::new(d, vs, vk::ShaderStageFlags::VERTEX);
         let frag_shader = Shader::new(d, fs, vk::ShaderStageFlags::FRAGMENT);
 
@@ -48,8 +49,6 @@ impl GraphicsPipeline {
         let input_assembly_state_ci = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
             .primitive_restart_enable(false);
-
-        let vertex_input_state_ci = vk::PipelineVertexInputStateCreateInfo::builder();
 
         let viewport = vk::Viewport::builder()
             .x(0.0)
@@ -118,6 +117,17 @@ impl GraphicsPipeline {
             },
             None => vec![]
         };
+
+        let (vertex_attribute_descs, vertex_binding_descs) = match vertex_buffer {
+            Some(buffer) => {
+                (buffer.attrib_descs.clone(), vec![buffer.binding_desc])
+            },
+            None => (vec![], vec![])
+        };
+
+        let vertex_input_state_ci = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_attribute_descriptions(&vertex_attribute_descs)
+            .vertex_binding_descriptions(&vertex_binding_descs);
 
         let pipeline_layout_ci = vk::PipelineLayoutCreateInfo::builder()
             .set_layouts(&descriptor_set_layouts)

@@ -8,8 +8,10 @@ use crate::renderer::descriptors::{DescriptorsBuilder, DescriptorBindingReferenc
 use crate::renderer::commands::Commands;
 use crate::renderer::graphics_pass::GraphicsPass;
 use crate::renderer::buffer::{Buffer, BufferBuilder};
+use crate::renderer::vertex_buffer::VertexBuffer;
 use crate::renderer::image::{Image2D, Image2DBuilder};
 use crate::renderer::push_constant::PushConstantBuilder;
+use crate::renderer::vertex_buffer::VertexAttributes;
 
 pub struct GraphicsLayer {
     pub count: usize,
@@ -29,8 +31,8 @@ impl GraphicsLayer {
         }
     }
 
-    pub unsafe fn add_pass(&mut self, c: &Core, d: &Device, targets: &Vec<Image2D>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str) {
-        self.passes.push(GraphicsPass::new(c, d, targets, descriptors_builder, push_constant_builder, vs, fs));
+    pub unsafe fn add_pass<T: VertexAttributes>(&mut self, c: &Core, d: &Device, targets: &Vec<Image2D>, verts: Option<&Vec<T>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str) {
+        self.passes.push(GraphicsPass::new(c, d, targets, verts, descriptors_builder, push_constant_builder, vs, fs));
     }
 
     pub unsafe fn fill_push_constant<T>(&mut self, pass_index: usize, data: &T) {
@@ -62,6 +64,11 @@ impl GraphicsLayer {
                 d.device.cmd_begin_render_pass(b, &render_pass_bi, vk::SubpassContents::INLINE);
 
                 d.device.cmd_bind_pipeline(b, vk::PipelineBindPoint::GRAPHICS, pass.pipeline.pipeline);
+                
+                if pass.vertex_buffer.is_some() {
+                    d.device.cmd_bind_vertex_buffers(b, 0, &[pass.vertex_buffer.as_ref().unwrap().buffer.buffer], &[0]);
+                }
+                
                 d.device.cmd_set_viewport(b, 0, &[pass.pipeline.viewport]);
                 d.device.cmd_set_scissor(b, 0, &[pass.pipeline.scissor]);
 

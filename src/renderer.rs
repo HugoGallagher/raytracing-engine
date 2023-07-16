@@ -4,6 +4,7 @@ mod swapchain;
 mod buffer;
 mod image;
 mod sampler;
+mod vertex_buffer;
 mod descriptors;
 mod shader;
 mod framebuffer;
@@ -26,7 +27,7 @@ use ash::vk;
 use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
 use winit::window::Window;
 
-use crate::{math::{vec::{Vec4, Vec3}, mat::Mat4}, renderer::{descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}, mesh::Tri}};
+use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}, mesh::Tri}};
 
 #[repr(C)]
 pub struct PushConstantData {
@@ -34,6 +35,17 @@ pub struct PushConstantData {
     pub pos: Vec3,
     pub downscale: u32,
     pub tri_count: u32,
+}
+
+#[repr(C)]
+pub struct Vertex {
+    pub pos: Vec2,
+}
+
+impl vertex_buffer::VertexAttributes for Vertex {
+    fn get_attribute_data() -> Vec<vertex_buffer::VertexAttribute> {
+        vec![vertex_buffer::VertexAttribute { format: vk::Format::R32G32_SFLOAT, offset: 0 }]
+    }
 }
 
 pub struct Renderer {
@@ -62,7 +74,7 @@ impl Renderer {
         const FRAMES_IN_FLIGHT: u32 = 2;
 
         const MAX_TRIS: usize = 8192;
-        const DOWNSCALE: u32 = 2;
+        const DOWNSCALE: u32 = 1;
 
         let mut tris = Vec::<Tri>::with_capacity(MAX_TRIS);
         
@@ -125,7 +137,16 @@ impl Renderer {
             .stage(vk::ShaderStageFlags::FRAGMENT)
             .add_sampler_builder(sampler_descriptor_builder);
 
-        graphics_layer.add_pass(&core, &device, &swapchain.images, Some(graphics_descriptors_builder), None, "draw_to_screen.vert", "draw_to_screen.frag");
+        let quad_verts = vec![
+            Vertex { pos: Vec2::new(-1.0, -1.0) },
+            Vertex { pos: Vec2::new(1.0, -1.0) },
+            Vertex { pos: Vec2::new(1.0, 1.0) },
+            Vertex { pos: Vec2::new(-1.0, -1.0) },
+            Vertex { pos: Vec2::new(1.0, 1.0) },
+            Vertex { pos: Vec2::new(-1.0, 1.0) },
+        ];
+
+        graphics_layer.add_pass(&core, &device, &swapchain.images, Some(&quad_verts), Some(graphics_descriptors_builder), None, "draw_to_screen.vert", "draw_to_screen.frag");
 
         let mut frames = Vec::<frame::Frame>::new();
 

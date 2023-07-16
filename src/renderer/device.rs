@@ -122,4 +122,17 @@ impl Device {
             queue_compute: queue_compute,
         }
     }
+
+    pub unsafe fn get_memory_type(&self, c: &Core, property_flags: vk::MemoryPropertyFlags, buffer: vk::Buffer) -> usize {
+        let memory_requirements = self.device.get_buffer_memory_requirements(buffer);
+        let memory_type_index = c.instance.get_physical_device_memory_properties(self.physical_device).memory_types.iter().enumerate().find_map(|(i, m)| {
+            if (memory_requirements.memory_type_bits & (1 << i)) != 0 && (m.property_flags & property_flags == property_flags) {
+                Some(i)
+            } else {
+                None
+            }
+        }).unwrap();
+
+        memory_type_index
+    }
 }
