@@ -15,8 +15,8 @@ impl Framebuffer {
         let framebuffer_ci = vk::FramebufferCreateInfo::builder()
             .render_pass(g.render_pass)
             .attachments(&views)
-            .width(d.surface_extent.width)
-            .height(d.surface_extent.height)
+            .width(target.width)
+            .height(target.height)
             .layers(1);
 
         let framebuffer = d.device.create_framebuffer(&framebuffer_ci, None).unwrap();
@@ -24,5 +24,15 @@ impl Framebuffer {
         Framebuffer {
             framebuffer,
         }
+    }
+
+    pub unsafe fn new_many(d: &Device, g: &GraphicsPipeline, targets: &Vec<Image2D>) -> Vec<Framebuffer> {
+        let mut framebuffers = Vec::<Framebuffer>::new();
+
+        for target in targets {
+            framebuffers.push(Framebuffer::new(d, g, target));
+        }
+
+        framebuffers
     }
 }

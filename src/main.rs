@@ -57,13 +57,6 @@ fn main() {
                     mouse_msg = mouse_r.try_recv();
                 }
 
-                match mouse_r.try_recv() {
-                    Ok(msg) => {
-                        game.mouse_delta = game.mouse_delta + msg.delta;
-                    },
-                    _ => {},
-                }
-
                 game.main_loop();
             }
         });

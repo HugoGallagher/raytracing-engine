@@ -47,7 +47,7 @@ pub struct Core {
 }
 
 impl Core {
-    pub unsafe fn new(validation_enabled: bool, display: RawDisplayHandle, ) -> Core {
+    pub unsafe fn new(validation_enabled: bool, display: RawDisplayHandle) -> Core {
         //let entry = ash::Entry::new().unwrap();
         let entry = ash::Entry::linked();
 
@@ -58,8 +58,7 @@ impl Core {
 
         let extension_names = ash_window::enumerate_required_extensions(display).unwrap();
         let mut extension_names_raw: Vec<*const i8> = extension_names.iter().map(|extension| *extension).collect();
-        //let mut extension_names_raw: Vec<*const i8> = extension_names.iter().map(|extension| extension.as_ptr()).collect();
-
+        
         extension_names_raw.push(DebugUtils::name().as_ptr());
 
         let app_i = vk::ApplicationInfo::builder()
@@ -74,8 +73,8 @@ impl Core {
         let instance = entry.create_instance(&instance_ci, None).unwrap();
 
         let debug_ci = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-            .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::ERROR)
-            .message_type(vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION)
+            .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::ERROR | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING)
+            .message_type(vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION)
             .pfn_user_callback(Some(debug_callback_fn));
 
         let debug_utils_init = DebugUtils::new(&entry, &instance);

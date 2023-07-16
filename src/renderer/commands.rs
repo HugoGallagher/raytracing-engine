@@ -31,18 +31,6 @@ impl Commands {
     pub unsafe fn record_all<F: Fn(usize, vk::CommandBuffer)>(&self, d: &Device, r: F) {
         for i in 0..self.buffers.len() {
             self.record_one(d, i, |b| { r(i, b) });
-
-            /*
-            d.device.reset_command_buffer(self.buffers[i], vk::CommandBufferResetFlags::RELEASE_RESOURCES).unwrap();
-
-            let buffer_bi = vk::CommandBufferBeginInfo::builder();
-
-            d.device.begin_command_buffer(self.buffers[i], &buffer_bi).unwrap();
-            
-            r(i, self.buffers[i]);
-
-            d.device.end_command_buffer(self.buffers[i]).unwrap();
-            */
         }
     }
 

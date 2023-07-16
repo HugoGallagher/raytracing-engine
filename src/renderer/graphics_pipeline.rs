@@ -7,6 +7,8 @@ use crate::renderer::device::Device;
 use crate::renderer::descriptors::Descriptors;
 use crate::renderer::swapchain::Swapchain;
 use crate::renderer::shader::Shader;
+use crate::renderer::image::Image2D;
+use crate::renderer::push_constant::PushConstant;
 
 pub struct GraphicsPipeline {
     pub pipeline: vk::Pipeline,
@@ -18,7 +20,7 @@ pub struct GraphicsPipeline {
 }
 
 impl GraphicsPipeline {
-    pub unsafe fn new(c: &Core, d: &Device, s: &Swapchain, de: &Descriptors, vs: &str, fs: &str) -> GraphicsPipeline {
+    pub unsafe fn new(c: &Core, d: &Device, target_res: (u32, u32), descriptor_set_layout: Option<vk::DescriptorSetLayout>, push_constant: Option<&PushConstant>, vs: &str, fs: &str) -> GraphicsPipeline {
         let vert_shader = Shader::new(d, vs, vk::ShaderStageFlags::VERTEX);
         let frag_shader = Shader::new(d, fs, vk::ShaderStageFlags::FRAGMENT);
 
@@ -49,20 +51,18 @@ impl GraphicsPipeline {
 
         let vertex_input_state_ci = vk::PipelineVertexInputStateCreateInfo::builder();
 
-        let targets = &s.images;
-
         let viewport = vk::Viewport::builder()
             .x(0.0)
             .y(0.0)
-            .width(targets[0].width as f32)
-            .height(targets[0].height as f32)
+            .width(target_res.0 as f32)
+            .height(target_res.1 as f32)
             .min_depth(0.0)
             .max_depth(1.0)
             .build();
 
         let scissor = vk::Rect2D::builder()
             .offset(vk::Offset2D { x: 0, y: 0} )
-            .extent(vk::Extent2D { width: targets[0].width, height: targets[0].height })
+            .extent(vk::Extent2D { width: target_res.0, height: target_res.1 })
             .build();
 
         let viewport_state_ci = vk::PipelineViewportStateCreateInfo::builder()
@@ -101,8 +101,27 @@ impl GraphicsPipeline {
             .attachments(&color_blend_attachment_states)
             .build();
 
+        let push_constant_ranges = match push_constant {
+            Some(pc) => {
+                vec![vk::PushConstantRange::builder()
+                    .size(pc.size as u32)
+                    .offset(0)
+                    .stage_flags(pc.stage)
+                    .build()]
+            },
+            None => vec![]
+        };
+
+        let descriptor_set_layouts = match descriptor_set_layout {
+            Some(layout) => {
+                vec![layout]
+            },
+            None => vec![]
+        };
+
         let pipeline_layout_ci = vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(&[de.set_layout])
+            .set_layouts(&descriptor_set_layouts)
+            .push_constant_ranges(&push_constant_ranges)
             .build();
         
         let pipeline_layout = d.device.create_pipeline_layout(&pipeline_layout_ci, None).unwrap();

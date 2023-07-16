@@ -6,8 +6,6 @@ use crate::renderer::semaphore::Semaphore;
 use crate::renderer::fence::Fence;
 
 pub struct Frame {
-    pub framebuffer: Framebuffer,
-    
     pub compute_finished_semaphore: Semaphore,
     pub render_finished_semaphore: Semaphore,
     pub image_available_semaphore: Semaphore,
@@ -15,9 +13,7 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub unsafe fn new(d: &Device, g: &GraphicsPipeline, target: &Image2D) -> Frame {
-        let framebuffer = Framebuffer::new(d, g, target);
-
+    pub unsafe fn new(d: &Device) -> Frame {
         let compute_finished_semaphore = Semaphore::new(d);
         let render_finished_semaphore = Semaphore::new(d);
         let image_available_semaphore = Semaphore::new(d);
@@ -25,8 +21,6 @@ impl Frame {
         let in_flight_fence = Fence::new(d, true);
 
         Frame {
-            framebuffer,
-
             compute_finished_semaphore,
             render_finished_semaphore,
             image_available_semaphore,

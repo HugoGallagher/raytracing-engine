@@ -6,6 +6,7 @@ use ash::vk;
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::{Descriptors, DescriptorsBuilder};
+use crate::renderer::push_constant::PushConstant;
 use crate::renderer::shader::Shader;
 
 pub struct ComputePipeline {
@@ -14,7 +15,7 @@ pub struct ComputePipeline {
 }
 
 impl ComputePipeline {
-    pub unsafe fn new(c: &Core, d: &Device, descriptor_set_layout: Option<vk::DescriptorSetLayout>, push_constant_size: Option<usize>, cs: &str) -> ComputePipeline {
+    pub unsafe fn new(c: &Core, d: &Device, descriptor_set_layout: Option<vk::DescriptorSetLayout>, push_constant: Option<&PushConstant>, cs: &str) -> ComputePipeline {
         let comp_shader = Shader::new(d, cs, vk::ShaderStageFlags::COMPUTE);
 
         let shader_entry_name = CString::new("main").unwrap();
@@ -25,12 +26,12 @@ impl ComputePipeline {
             .stage(vk::ShaderStageFlags::COMPUTE)
             .build();
 
-        let push_constant_ranges = match push_constant_size {
-            Some(size) => {
+        let push_constant_ranges = match push_constant {
+            Some(pc) => {
                 vec![vk::PushConstantRange::builder()
-                    .size(size as u32)
+                    .size(pc.size as u32)
                     .offset(0)
-                    .stage_flags(vk::ShaderStageFlags::COMPUTE)
+                    .stage_flags(pc.stage)
                     .build()]
             },
             None => vec![]
