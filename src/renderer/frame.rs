@@ -1,7 +1,4 @@
 use crate::renderer::device::Device;
-use crate::renderer::graphics_pipeline::GraphicsPipeline;
-use crate::renderer::image::Image2D;
-use crate::renderer::framebuffer::Framebuffer;
 use crate::renderer::semaphore::Semaphore;
 use crate::renderer::fence::Fence;
 

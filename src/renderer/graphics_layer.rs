@@ -1,12 +1,10 @@
-use std::{ffi::c_void, collections::HashMap};
-
 use ash::vk;
 
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
-use crate::renderer::descriptors::{DescriptorsBuilder, DescriptorBindingReference};
+use crate::renderer::descriptors::DescriptorsBuilder;
 use crate::renderer::commands::Commands;
-use crate::renderer::graphics_pass::GraphicsPass;
+use crate::renderer::graphics_pass::{GraphicsPass, GraphicsPassDrawInfo};
 use crate::renderer::buffer::{Buffer, BufferBuilder};
 use crate::renderer::vertex_buffer::VertexBuffer;
 use crate::renderer::image::{Image2D, Image2DBuilder};
@@ -22,7 +20,7 @@ pub struct GraphicsLayer {
 
 impl GraphicsLayer {
     pub unsafe fn new(c: &Core, d: &Device, count: usize) -> GraphicsLayer {
-        let commands = Commands::new(d, d.queue_graphics.1, count);
+        let commands = Commands::new(d, d.queue_graphics.1, count, false);
 
         GraphicsLayer {
             count,
@@ -31,8 +29,8 @@ impl GraphicsLayer {
         }
     }
 
-    pub unsafe fn add_pass<T: VertexAttributes>(&mut self, c: &Core, d: &Device, targets: &Vec<Image2D>, verts: Option<&Vec<T>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str) {
-        self.passes.push(GraphicsPass::new(c, d, targets, verts, descriptors_builder, push_constant_builder, vs, fs));
+    pub unsafe fn add_pass<T: VertexAttributes>(&mut self, c: &Core, d: &Device, targets: &Vec<Image2D>, verts: Option<&Vec<T>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, draw_info: GraphicsPassDrawInfo) {
+        self.passes.push(GraphicsPass::new(c, d, targets, verts, descriptors_builder, push_constant_builder, vs, fs, draw_info));
     }
 
     pub unsafe fn fill_push_constant<T>(&mut self, pass_index: usize, data: &T) {
@@ -72,7 +70,7 @@ impl GraphicsLayer {
                 d.device.cmd_set_viewport(b, 0, &[pass.pipeline.viewport]);
                 d.device.cmd_set_scissor(b, 0, &[pass.pipeline.scissor]);
 
-                d.device.cmd_draw(b, 6, 1, 0, 0);
+                d.device.cmd_draw(b, pass.draw_info.vertex_count, pass.draw_info.instance_count, pass.draw_info.first_vertex, pass.draw_info.instance_count);
 
                 d.device.cmd_end_render_pass(b);
             }

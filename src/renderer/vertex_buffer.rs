@@ -47,9 +47,8 @@ impl VertexBuffer {
             .size(mem::size_of::<T>() * verts.len())
             .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
-            .build(c, d,);
-
-        buffer.fill(d, verts.as_ptr() as *const c_void, mem::size_of::<T>() * verts.len());
+            .properties(vk::MemoryPropertyFlags::DEVICE_LOCAL)
+            .build_with_data(c, d, verts.as_ptr() as *const c_void);
 
         VertexBuffer {
             binding_desc,

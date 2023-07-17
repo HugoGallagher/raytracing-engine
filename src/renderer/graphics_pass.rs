@@ -10,16 +10,24 @@ use crate::renderer::framebuffer::Framebuffer;
 use crate::renderer::push_constant::PushConstant;
 use crate::renderer::image::Image2D;
 
+pub struct GraphicsPassDrawInfo {
+    pub vertex_count: u32,
+    pub instance_count: u32,
+    pub first_vertex: u32,
+    pub first_instance: u32,
+}
+
 pub struct GraphicsPass {
     pub push_constant: Option<PushConstant>,
     pub descriptors: Option<Descriptors>,
     pub vertex_buffer: Option<VertexBuffer>,
     pub pipeline: GraphicsPipeline,
     pub framebuffers: Vec<Framebuffer>,
+    pub draw_info: GraphicsPassDrawInfo,
 }
 
 impl GraphicsPass {
-    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, targets: &Vec<Image2D>, verts: Option<&Vec<T>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str) -> GraphicsPass {
+    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, targets: &Vec<Image2D>, verts: Option<&Vec<T>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, draw_info: GraphicsPassDrawInfo) -> GraphicsPass {
         let descriptors = match descriptors_builder {
             Some(de_b) => Some(de_b.build(c, d)),
             None => None
@@ -52,6 +60,7 @@ impl GraphicsPass {
             vertex_buffer,
             pipeline,
             framebuffers,
+            draw_info,
         }
     }
 }

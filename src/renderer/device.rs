@@ -1,6 +1,5 @@
 use ash::vk;
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle, RawDisplayHandle};
-use winit::window::Window;
+use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
 
 use crate::renderer::core::Core;
 

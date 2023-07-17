@@ -1,7 +1,9 @@
+pub mod wireframe_mesh;
+
 use std::sync::mpsc;
 use std::thread;
 
-use crate::math::{vec::{Vec2, Vec3, Vec4}, mat::Mat4};
+use crate::math::{vec::{Vec2, Vec3, Vec4}, mat::Mat4, quat::Quat};
 
 use crate::renderer::Renderer;
 use crate::frametime::Frametime;
@@ -19,8 +21,6 @@ pub struct Game {
     pub frametime: Frametime,
 
     pub mouse_delta: Vec2,
-    pub cur_mouse_pos: Vec2,
-    pub prev_mouse_pos: Vec2,
     pub mid_mouse_pos: Vec2,
 
     pos: Vec3,
@@ -40,8 +40,6 @@ impl Game {
             frametime: Frametime::new(),
 
             mouse_delta: Vec2::new(0.0, 0.0),
-            cur_mouse_pos: Vec2::new((r.x / 2.0) as f32, (r.y / 2.0) as f32),
-            prev_mouse_pos: Vec2::new((r.x / 2.0) as f32, (r.y / 2.0) as f32),
             mid_mouse_pos: Vec2::new((r.x / 2.0) as f32, (r.y / 2.0) as f32),
 
             pos: Vec3::new(0.0, 0.0, 0.0),
@@ -96,7 +94,6 @@ impl Game {
         self.renderer.push_constant.pos = Vec3::new(self.pos.x, self.pos.y, self.pos.z);
 
         self.vel = Vec3::new(0.0, 0.0, 0.0);
-        self.prev_mouse_pos = self.cur_mouse_pos;
         self.mouse_delta = Vec2::new(0.0, 0.0);
     }
 

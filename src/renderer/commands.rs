@@ -5,10 +5,11 @@ use crate::renderer::device::Device;
 pub struct Commands {
     pub pool: vk::CommandPool,
     pub buffers: Vec<vk::CommandBuffer>,
+    pub one_time: bool,
 }
 
 impl Commands {
-    pub unsafe fn new(d: &Device, q: u32, c: usize) -> Commands {
+    pub unsafe fn new(d: &Device, q: u32, c: usize, one_time: bool) -> Commands {
         let pool_ci = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(q);
@@ -25,6 +26,7 @@ impl Commands {
         Commands {
             pool: pool,
             buffers: buffers,
+            one_time,
         }
     }
 
@@ -37,7 +39,11 @@ impl Commands {
     pub unsafe fn record_one<F: Fn(vk::CommandBuffer)>(&self, d: &Device, i: usize, r: F) {
         d.device.reset_command_buffer(self.buffers[i], vk::CommandBufferResetFlags::RELEASE_RESOURCES).unwrap();
 
-        let buffer_bi = vk::CommandBufferBeginInfo::builder();
+        let mut buffer_bi = vk::CommandBufferBeginInfo::builder();
+
+        if self.one_time {
+            buffer_bi = buffer_bi.flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        }
 
         d.device.begin_command_buffer(self.buffers[i], &buffer_bi).unwrap();
 

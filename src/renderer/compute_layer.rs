@@ -7,7 +7,7 @@ use crate::renderer::device::Device;
 use crate::renderer::descriptors::{DescriptorsBuilder, DescriptorBindingReference};
 use crate::renderer::push_constant::{PushConstant, PushConstantBuilder};
 use crate::renderer::commands::Commands;
-use crate::renderer::compute_pass::ComputePass;
+use crate::renderer::compute_pass::{ComputePass, ComputePassDispatchInfo};
 use crate::renderer::buffer::{Buffer, BufferBuilder};
 use crate::renderer::image::{Image2D, Image2DBuilder};
 
@@ -20,7 +20,7 @@ pub struct ComputeLayer {
 
 impl ComputeLayer {
     pub unsafe fn new(c: &Core, d: &Device, count: usize) -> ComputeLayer {
-        let commands = Commands::new(d, d.queue_compute.1, count);
+        let commands = Commands::new(d, d.queue_compute.1, count, false);
 
         ComputeLayer {
             count,
@@ -29,8 +29,8 @@ impl ComputeLayer {
         }
     }
 
-    pub unsafe fn add_pass(&mut self, c: &Core, d: &Device, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, cs: &str, workgroups: (u32, u32, u32)) {
-        self.passes.push(ComputePass::new(c, d, descriptors_builder, push_constant_builder, cs, workgroups));
+    pub unsafe fn add_pass(&mut self, c: &Core, d: &Device, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, cs: &str, dispatch_info: ComputePassDispatchInfo) {
+        self.passes.push(ComputePass::new(c, d, descriptors_builder, push_constant_builder, cs, dispatch_info));
     }
 
     pub unsafe fn fill_push_constant<T>(&mut self, pass_index: usize, data: &T) {
@@ -51,7 +51,7 @@ impl ComputeLayer {
                     descriptors.bind(d, &b, vk::PipelineBindPoint::COMPUTE, &pass.pipeline.pipeline_layout, i);
                 }
 
-                d.device.cmd_dispatch(b, pass.workgroups.0, pass.workgroups.1, pass.workgroups.2);
+                d.device.cmd_dispatch(b, pass.dispatch_info.x, pass.dispatch_info.y, pass.dispatch_info.z);
             }
         })
     }

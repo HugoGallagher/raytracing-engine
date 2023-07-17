@@ -1,33 +1,32 @@
-mod core;
-mod device;
-mod swapchain;
-mod buffer;
-mod image;
-mod sampler;
-mod vertex_buffer;
-mod descriptors;
-mod shader;
-mod framebuffer;
-mod commands;
-mod compute_pipeline;
-mod graphics_pipeline;
-mod compute_pass;
-mod graphics_pass;
-mod compute_layer;
-mod graphics_layer;
-mod fence;
-mod semaphore;
-mod frame;
-mod mesh;
-mod push_constant;
+pub mod core;
+pub mod device;
+pub mod swapchain;
+pub mod buffer;
+pub mod image;
+pub mod sampler;
+pub mod vertex_buffer;
+pub mod descriptors;
+pub mod shader;
+pub mod framebuffer;
+pub mod commands;
+pub mod compute_pipeline;
+pub mod graphics_pipeline;
+pub mod compute_pass;
+pub mod graphics_pass;
+pub mod compute_layer;
+pub mod graphics_layer;
+pub mod fence;
+pub mod semaphore;
+pub mod frame;
+pub mod mesh;
+pub mod push_constant;
 
 use std::{mem, ffi::c_void, collections::HashMap};
 
 use ash::vk;
 use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
-use winit::window::Window;
 
-use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}, mesh::Tri}};
+use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}, mesh::Tri, compute_pass::ComputePassDispatchInfo, graphics_pass::GraphicsPassDrawInfo}, game::wireframe_mesh::{self, WireframeMesh}};
 
 #[repr(C)]
 pub struct PushConstantData {
@@ -61,6 +60,8 @@ pub struct Renderer {
     pub compute_layer: compute_layer::ComputeLayer,
     pub graphics_layer: graphics_layer::GraphicsLayer,
 
+    mesh: wireframe_mesh::WireframeMesh,
+
     frames: Vec<frame::Frame>,
 
     tris: Vec<Tri>,
@@ -74,7 +75,7 @@ impl Renderer {
         const FRAMES_IN_FLIGHT: u32 = 2;
 
         const MAX_TRIS: usize = 8192;
-        const DOWNSCALE: u32 = 1;
+        const DOWNSCALE: u32 = 2;
 
         let mut tris = Vec::<Tri>::with_capacity(MAX_TRIS);
         
@@ -100,7 +101,8 @@ impl Renderer {
         let buffer_builder = buffer::BufferBuilder::new()
             .size(mem::size_of::<Tri>() * MAX_TRIS)
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
-            .usage(vk::BufferUsageFlags::STORAGE_BUFFER);
+            .usage(vk::BufferUsageFlags::STORAGE_BUFFER)
+            .properties(vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
         let image_builder = image::Image2DBuilder::new()
             .width(1280 / DOWNSCALE)
@@ -108,8 +110,8 @@ impl Renderer {
             .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED)
             .format(vk::Format::R8G8B8A8_UNORM);
 
-        buffers.insert("tris".to_string(), buffer_builder.build_many(&core, &device, FRAMES_IN_FLIGHT));
-        images.insert("raytraced_image".to_string(), image_builder.build_many(&core, &device, FRAMES_IN_FLIGHT));
+        buffers.insert("tris".to_string(), buffer_builder.build_many(&core, &device, FRAMES_IN_FLIGHT as usize));
+        images.insert("raytraced_image".to_string(), image_builder.build_many(&core, &device, FRAMES_IN_FLIGHT as usize));
 
         let image_descriptor_builder = descriptors::image_descriptor::ImageDescriptorBuilder::new()
             .images(&images.get("raytraced_image").unwrap());
@@ -130,7 +132,13 @@ impl Renderer {
             .size(mem::size_of::<PushConstantData>())
             .stage(vk::ShaderStageFlags::COMPUTE);
 
-        compute_layer.add_pass(&core, &device, Some(compute_descriptors_builder), Some(compute_push_constant_builder), "raytracer.comp", ((1280 / 16) / DOWNSCALE + 1, (720 / 16) / DOWNSCALE + 1, 1));
+        let compute_pass_dispatch_info = ComputePassDispatchInfo {
+            x: (1280 / 16) / DOWNSCALE + 1,
+            y: (720 / 16) / DOWNSCALE + 1,
+            z: 1
+        };
+
+        compute_layer.add_pass(&core, &device, Some(compute_descriptors_builder), Some(compute_push_constant_builder), "raytracer.comp", compute_pass_dispatch_info);
 
         let graphics_descriptors_builder = descriptors::DescriptorsBuilder::new()
             .count(FRAMES_IN_FLIGHT as usize)
@@ -146,7 +154,16 @@ impl Renderer {
             Vertex { pos: Vec2::new(-1.0, 1.0) },
         ];
 
-        graphics_layer.add_pass(&core, &device, &swapchain.images, Some(&quad_verts), Some(graphics_descriptors_builder), None, "draw_to_screen.vert", "draw_to_screen.frag");
+        let mesh = WireframeMesh::new();
+
+        let graphics_pass_draw_info = GraphicsPassDrawInfo {
+            vertex_count: mesh.verts.len() as u32,
+            instance_count: 1,
+            first_vertex: 0,
+            first_instance: 0,
+        };
+
+        graphics_layer.add_pass(&core, &device, &swapchain.images, Some(&quad_verts), Some(graphics_descriptors_builder), None, "draw_to_screen.vert", "draw_to_screen.frag", graphics_pass_draw_info);
 
         let mut frames = Vec::<frame::Frame>::new();
 
@@ -166,6 +183,8 @@ impl Renderer {
             compute_layer,
             graphics_layer,
 
+            mesh,
+
             frames,
             tris,
 
@@ -175,11 +194,11 @@ impl Renderer {
     }
 
     pub unsafe fn add_buffer(&mut self, name: &str, builder: buffer::BufferBuilder) {
-        self.buffers.insert(name.to_string(), builder.build_many(&self.core, &self.device, self.frames_in_flight as u32));
+        self.buffers.insert(name.to_string(), builder.build_many(&self.core, &self.device, self.frames_in_flight));
     }
 
     pub unsafe fn add_image(&mut self, name: &str, builder: image::Image2DBuilder) {
-        self.images.insert(name.to_string(), builder.build_many(&self.core, &self.device, self.frames_in_flight as u32));
+        self.images.insert(name.to_string(), builder.build_many(&self.core, &self.device, self.frames_in_flight));
     }
 
     pub unsafe fn draw(&mut self) {

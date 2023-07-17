@@ -77,7 +77,7 @@ impl Image2DBuilder {
         )
     }
 
-    pub unsafe fn build_many(&self, c: &Core, d: &Device, count: u32) -> Vec<Image2D> {
+    pub unsafe fn build_many(&self, c: &Core, d: &Device, count: usize) -> Vec<Image2D> {
         let mut images = Vec::<Image2D>::new();
         for _ in 0..count {
             images.push(Image2D::new(
