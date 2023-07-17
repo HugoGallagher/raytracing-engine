@@ -149,21 +149,23 @@ impl Renderer {
             Vertex { pos: Vec2::new(-1.0, -1.0) },
             Vertex { pos: Vec2::new(1.0, -1.0) },
             Vertex { pos: Vec2::new(1.0, 1.0) },
-            Vertex { pos: Vec2::new(-1.0, -1.0) },
-            Vertex { pos: Vec2::new(1.0, 1.0) },
             Vertex { pos: Vec2::new(-1.0, 1.0) },
         ];
+
+        let quad_indices = vec![0, 1, 2, 2, 3, 0];
 
         let mesh = WireframeMesh::new();
 
         let graphics_pass_draw_info = GraphicsPassDrawInfo {
-            vertex_count: mesh.verts.len() as u32,
+            vertex_count: quad_verts.len() as u32,
+            index_count: quad_indices.len() as u32,
             instance_count: 1,
             first_vertex: 0,
             first_instance: 0,
+            vertex_offset: 0,
         };
 
-        graphics_layer.add_pass(&core, &device, &swapchain.images, Some(&quad_verts), Some(graphics_descriptors_builder), None, "draw_to_screen.vert", "draw_to_screen.frag", graphics_pass_draw_info);
+        graphics_layer.add_pass(&core, &device, &swapchain.images, Some(&quad_verts), Some(&quad_indices), Some(graphics_descriptors_builder), None, "draw_to_screen.vert", "draw_to_screen.frag", graphics_pass_draw_info);
 
         let mut frames = Vec::<frame::Frame>::new();
 

@@ -29,8 +29,8 @@ impl GraphicsLayer {
         }
     }
 
-    pub unsafe fn add_pass<T: VertexAttributes>(&mut self, c: &Core, d: &Device, targets: &Vec<Image2D>, verts: Option<&Vec<T>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, draw_info: GraphicsPassDrawInfo) {
-        self.passes.push(GraphicsPass::new(c, d, targets, verts, descriptors_builder, push_constant_builder, vs, fs, draw_info));
+    pub unsafe fn add_pass<T: VertexAttributes>(&mut self, c: &Core, d: &Device, targets: &Vec<Image2D>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, draw_info: GraphicsPassDrawInfo) {
+        self.passes.push(GraphicsPass::new(c, d, targets, verts, indices, descriptors_builder, push_constant_builder, vs, fs, draw_info));
     }
 
     pub unsafe fn fill_push_constant<T>(&mut self, pass_index: usize, data: &T) {
@@ -63,14 +63,19 @@ impl GraphicsLayer {
 
                 d.device.cmd_bind_pipeline(b, vk::PipelineBindPoint::GRAPHICS, pass.pipeline.pipeline);
                 
+                d.device.cmd_set_viewport(b, 0, &[pass.pipeline.viewport]);
+                d.device.cmd_set_scissor(b, 0, &[pass.pipeline.scissor]);
+
                 if pass.vertex_buffer.is_some() {
                     d.device.cmd_bind_vertex_buffers(b, 0, &[pass.vertex_buffer.as_ref().unwrap().buffer.buffer], &[0]);
                 }
                 
-                d.device.cmd_set_viewport(b, 0, &[pass.pipeline.viewport]);
-                d.device.cmd_set_scissor(b, 0, &[pass.pipeline.scissor]);
-
-                d.device.cmd_draw(b, pass.draw_info.vertex_count, pass.draw_info.instance_count, pass.draw_info.first_vertex, pass.draw_info.instance_count);
+                if pass.indexed {
+                    d.device.cmd_bind_index_buffer(b, pass.vertex_buffer.as_ref().unwrap().index_buffer.unwrap().buffer, 0, vk::IndexType::UINT32);
+                    d.device.cmd_draw_indexed(b, pass.draw_info.index_count, pass.draw_info.instance_count, pass.draw_info.first_vertex, pass.draw_info.vertex_offset, pass.draw_info.instance_count);
+                } else {
+                    d.device.cmd_draw(b, pass.draw_info.vertex_count, pass.draw_info.instance_count, pass.draw_info.first_vertex, pass.draw_info.instance_count);
+                }
 
                 d.device.cmd_end_render_pass(b);
             }

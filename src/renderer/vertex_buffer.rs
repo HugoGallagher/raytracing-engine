@@ -21,10 +21,11 @@ pub struct VertexBuffer {
     pub binding_desc: vk::VertexInputBindingDescription,
     pub attrib_descs: Vec<vk::VertexInputAttributeDescription>,
     pub buffer: Buffer,
+    pub index_buffer: Option<Buffer>,
 }
 
 impl VertexBuffer {
-    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, verts: &Vec<T>) -> VertexBuffer {
+    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, verts: &Vec<T>, indices: Option<&Vec<u32>>) -> VertexBuffer {
         let binding_desc = vk::VertexInputBindingDescription::builder()
             .binding(0)
             .stride(std::mem::size_of::<T>() as u32)
@@ -50,10 +51,23 @@ impl VertexBuffer {
             .properties(vk::MemoryPropertyFlags::DEVICE_LOCAL)
             .build_with_data(c, d, verts.as_ptr() as *const c_void);
 
+        let index_buffer = match indices {
+            Some(is) => {
+                Some(BufferBuilder::new()
+                    .size(mem::size_of::<u32>() * is.len())
+                    .usage(vk::BufferUsageFlags::INDEX_BUFFER)
+                    .sharing_mode(vk::SharingMode::EXCLUSIVE)
+                    .properties(vk::MemoryPropertyFlags::DEVICE_LOCAL)
+                    .build_with_data(c, d, is.as_ptr() as *const c_void))
+            },
+            None => None,
+        };
+
         VertexBuffer {
             binding_desc,
             attrib_descs,
             buffer,
+            index_buffer,
         }
     }
 }

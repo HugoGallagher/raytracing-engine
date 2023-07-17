@@ -12,9 +12,11 @@ use crate::renderer::image::Image2D;
 
 pub struct GraphicsPassDrawInfo {
     pub vertex_count: u32,
+    pub index_count: u32,
     pub instance_count: u32,
     pub first_vertex: u32,
     pub first_instance: u32,
+    pub vertex_offset: i32,
 }
 
 pub struct GraphicsPass {
@@ -24,10 +26,11 @@ pub struct GraphicsPass {
     pub pipeline: GraphicsPipeline,
     pub framebuffers: Vec<Framebuffer>,
     pub draw_info: GraphicsPassDrawInfo,
+    pub indexed: bool,
 }
 
 impl GraphicsPass {
-    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, targets: &Vec<Image2D>, verts: Option<&Vec<T>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, draw_info: GraphicsPassDrawInfo) -> GraphicsPass {
+    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, targets: &Vec<Image2D>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, draw_info: GraphicsPassDrawInfo) -> GraphicsPass {
         let descriptors = match descriptors_builder {
             Some(de_b) => Some(de_b.build(c, d)),
             None => None
@@ -44,7 +47,7 @@ impl GraphicsPass {
         };
 
         let vertex_buffer = match verts {
-            Some(v) => Some(VertexBuffer::new(c, d, v)),
+            Some(v) => Some(VertexBuffer::new(c, d, v, indices)),
             None => None
         };
 
@@ -54,6 +57,8 @@ impl GraphicsPass {
 
         let framebuffers = Framebuffer::new_many(d, &pipeline, targets);
 
+        let indexed = indices.is_some();
+
         GraphicsPass {
             push_constant,
             descriptors,
@@ -61,6 +66,7 @@ impl GraphicsPass {
             pipeline,
             framebuffers,
             draw_info,
+            indexed,
         }
     }
 }
