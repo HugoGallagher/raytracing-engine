@@ -1,4 +1,4 @@
-cargo build --release
+cargo build
 del engine.exe
-cd target/release
+cd target/debug
 copy engine.exe "../../engine.exe"

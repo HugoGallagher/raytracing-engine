@@ -40,7 +40,7 @@ impl Game {
             mouse_delta: Vec2::new(0.0, 0.0),
             mid_mouse_pos: Vec2::new((r.x / 2.0) as f32, (r.y / 2.0) as f32),
 
-            pos: Vec3::new(0.0, 0.0, 3.0),
+            pos: Vec3::new(0.0, 0.0, -3.0),
             vel: Vec3::new(0.0, 0.0, 0.0),
             rot: Vec3::new(0.0, 0.0, 0.0),
 
@@ -59,14 +59,14 @@ impl Game {
     }
 
     pub fn update(&mut self) {
-        self.rot.x += self.mouse_delta.y * self.sens;
-        self.rot.y -= self.mouse_delta.x * self.sens;
+        self.rot.x -= self.mouse_delta.y * self.sens;
+        self.rot.y += self.mouse_delta.x * self.sens;
 
         if self.key_down(VirtualKeyCode::W) {
-            self.vel.z = 0.2;
+            self.vel.z = -0.2;
         }
         if self.key_down(VirtualKeyCode::S) {
-            self.vel.z = -0.2;
+            self.vel.z = 0.2;
         }
         if self.key_down(VirtualKeyCode::A) {
             self.vel.x = -0.2;
@@ -83,7 +83,7 @@ impl Game {
         }
 
         //self.renderer.push_constant.view = Mat4::rot(Quat::from_eu(self.rot.x, self.rot.y, self.rot.z));
-        self.renderer.push_constant.view = Mat4::rot_x(self.rot.x) * Mat4::rot_y(self.rot.y);
+        self.renderer.push_constant.view = Mat4::rot_y(self.rot.y) * Mat4::rot_x(self.rot.x);
 
         self.pos.x += self.vel.x * self.rot.y.cos() - self.vel.z * self.rot.y.sin();
         self.pos.z -= self.vel.x * self.rot.y.sin() + self.vel.z * self.rot.y.cos();
@@ -97,9 +97,8 @@ impl Game {
         view_dir.y = self.rot.x.sin();
         view_dir.z = self.rot.x.cos() * self.rot.y.cos();
         
-        self.renderer.mesh_push_constant.view_proj = Mat4::perspective(16.0 / 9.0, PI / 2.0, 0.0005, 100.0).transpose();
-        self.renderer.mesh_push_constant.model = Mat4::view(view_dir, self.pos).transpose();
-
+        self.renderer.mesh_push_constant.view_proj = (Mat4::view(view_dir, self.pos) * Mat4::perspective(16.0 / 9.0, PI / 2.0, 0.0005, 100.0)).transpose();
+        
         //println!("{}", self.renderer.mesh_push_constant.model);
 
         self.vel = Vec3::new(0.0, 0.0, 0.0);

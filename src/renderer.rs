@@ -215,9 +215,9 @@ impl Renderer {
             .size(mem::size_of::<MeshPushConstant>())
             .stage(vk::ShaderStageFlags::VERTEX);
 
-        graphics_layer.add_pass(&core, &device, &swapchain.images, Some(&mesh_verts), None, None, Some(mesh_push_constant_builder), "mesh.vert", "mesh.frag", true, mesh_pass_draw_info);
-        //graphics_layer.add_pass(&core, &device, &swapchain.images, Some(&quad_verts), Some(&quad_indices), Some(graphics_descriptors_builder), None, "draw_to_screen.vert", "draw_to_screen.frag", false ,graphics_pass_draw_info);
-
+        graphics_layer.add_pass(&core, &device, &swapchain.images, None, None, Some(&quad_verts), Some(&quad_indices), Some(graphics_descriptors_builder), None, "draw_to_screen.vert", "draw_to_screen.frag", false ,quad_pass_draw_info);
+        graphics_layer.add_pass(&core, &device, &swapchain.images, Some(vk::Extent2D { width: 320, height: 180 }), None, Some(&mesh_verts), None, None, Some(mesh_push_constant_builder), "mesh.vert", "mesh.frag", true, mesh_pass_draw_info);
+        
         let mut frames = Vec::<frame::Frame>::new();
 
         for _ in 0..FRAMES_IN_FLIGHT {
@@ -266,7 +266,7 @@ impl Renderer {
         let present_indices = [present_index as u32];
         
         self.compute_layer.fill_push_constant(0, &self.push_constant);
-        self.graphics_layer.fill_push_constant(0, &self.mesh_push_constant);
+        self.graphics_layer.fill_push_constant(1, &self.mesh_push_constant);
 
         self.buffers.get("tris").unwrap()[self.current_frame].fill(&self.device, self.tris.as_ptr() as *const c_void, self.tris.len() * mem::size_of::<Tri>());
 

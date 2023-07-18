@@ -30,7 +30,7 @@ pub struct GraphicsPass {
 }
 
 impl GraphicsPass {
-    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, targets: &Vec<Image>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, with_depth_buffer: bool, draw_info: GraphicsPassDrawInfo) -> GraphicsPass {
+    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, targets: &Vec<Image>, extent: Option<vk::Extent2D>, offset: Option<vk::Offset2D>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, with_depth_buffer: bool, draw_info: GraphicsPassDrawInfo) -> GraphicsPass {
         let descriptors = match descriptors_builder {
             Some(de_b) => Some(de_b.build(c, d)),
             None => None
@@ -51,11 +51,21 @@ impl GraphicsPass {
             None => None
         };
 
-        let target_extent = (targets[0].width, targets[0].height);
-        
-        let pipeline = GraphicsPipeline::new(c, d, target_extent, vertex_buffer.as_ref(), descriptor_set_layout, push_constant.as_ref(), vs, fs, with_depth_buffer);
+        let target_extent = match extent {
+            Some(e) => e,
+            None => vk::Extent2D { width: targets[0].width, height: targets[0].height },
+        };
 
-        let framebuffers = Framebuffer::new_many(d, &pipeline, targets);
+        let offset = match offset {
+            Some(o) => o,
+            None => vk::Offset2D { x: 0, y: 0 },
+        };
+
+        let target_rect = vk::Rect2D { extent: target_extent, offset };
+        
+        let pipeline = GraphicsPipeline::new(c, d, target_rect, vertex_buffer.as_ref(), descriptor_set_layout, push_constant.as_ref(), vs, fs, with_depth_buffer);
+
+        let framebuffers = Framebuffer::new_many(d, &pipeline, targets, extent);
 
         let indexed = indices.is_some();
 

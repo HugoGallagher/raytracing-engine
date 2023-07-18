@@ -23,7 +23,7 @@ pub struct GraphicsPipeline {
 }
 
 impl GraphicsPipeline {
-    pub unsafe fn new(c: &Core, d: &Device, target_res: (u32, u32), vertex_buffer: Option<&VertexBuffer>, descriptor_set_layout: Option<vk::DescriptorSetLayout>, push_constant: Option<&PushConstant>, vs: &str, fs: &str, with_depth_buffer: bool) -> GraphicsPipeline {
+    pub unsafe fn new(c: &Core, d: &Device, target_rect: vk::Rect2D, vertex_buffer: Option<&VertexBuffer>, descriptor_set_layout: Option<vk::DescriptorSetLayout>, push_constant: Option<&PushConstant>, vs: &str, fs: &str, with_depth_buffer: bool) -> GraphicsPipeline {
         let vert_shader = Shader::new(d, vs, vk::ShaderStageFlags::VERTEX);
         let frag_shader = Shader::new(d, fs, vk::ShaderStageFlags::FRAGMENT);
 
@@ -53,18 +53,15 @@ impl GraphicsPipeline {
             .primitive_restart_enable(false);
 
         let viewport = vk::Viewport::builder()
-            .x(0.0)
-            .y(0.0)
-            .width(target_res.0 as f32)
-            .height(target_res.1 as f32)
+            .x(target_rect.offset.x as f32)
+            .y(target_rect.offset.y as f32)
+            .width(target_rect.extent.width as f32)
+            .height(target_rect.extent.height as f32)
             .min_depth(0.0)
             .max_depth(1.0)
             .build();
 
-        let scissor = vk::Rect2D::builder()
-            .offset(vk::Offset2D { x: 0, y: 0} )
-            .extent(vk::Extent2D { width: target_res.0, height: target_res.1 })
-            .build();
+        let scissor = target_rect;
 
         let viewport_state_ci = vk::PipelineViewportStateCreateInfo::builder()
             .viewport_count(1)
@@ -163,8 +160,8 @@ impl GraphicsPipeline {
             let depth_format = vk::Format::D32_SFLOAT;
 
             depth_image = Some(ImageBuilder::new()
-                .width(target_res.0)
-                .height(target_res.1)
+                .width(target_rect.extent.width)
+                .height(target_rect.extent.height)
                 .format(depth_format)
                 .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
                 .build(c, d));
@@ -195,13 +192,13 @@ impl GraphicsPipeline {
         let depth_stencil_state_ci = depth_stencil_state_ci_builder
             .build();
 
-        let mut subpass_description = vk::SubpassDescription::builder()
+        let subpass_description_builder = vk::SubpassDescription::builder()
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
             .color_attachments(&color_attachment_refs);
 
-        let subpass_description = match depth_attachment_ref {
-            Some(depth_ref) => subpass_description.depth_stencil_attachment(&depth_ref).build(),
-            None => subpass_description.build(),
+        let subpass_description = match depth_attachment_ref.as_ref() {
+            Some(depth_ref) => subpass_description_builder.depth_stencil_attachment(depth_ref).build(),
+            None => subpass_description_builder.build(),
         };
 
         let mut subpass_dep_stage_mask = vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT;

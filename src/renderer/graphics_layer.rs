@@ -29,8 +29,8 @@ impl GraphicsLayer {
         }
     }
 
-    pub unsafe fn add_pass<T: VertexAttributes>(&mut self, c: &Core, d: &Device, targets: &Vec<Image>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, with_depth_buffer: bool, draw_info: GraphicsPassDrawInfo) {
-        self.passes.push(GraphicsPass::new(c, d, targets, verts, indices, descriptors_builder, push_constant_builder, vs, fs, with_depth_buffer, draw_info));
+    pub unsafe fn add_pass<T: VertexAttributes>(&mut self, c: &Core, d: &Device, targets: &Vec<Image>, extent: Option<vk::Extent2D>, offset: Option<vk::Offset2D>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, with_depth_buffer: bool, draw_info: GraphicsPassDrawInfo) {
+        self.passes.push(GraphicsPass::new(c, d, targets, extent, offset, verts, indices, descriptors_builder, push_constant_builder, vs, fs, with_depth_buffer, draw_info));
     }
 
     pub unsafe fn fill_push_constant<T>(&mut self, pass_index: usize, data: &T) {

@@ -122,7 +122,7 @@ impl Mat4 {
     }
 
     pub fn view(dir: Vec3, pos: Vec3) -> Mat4 {
-        const UP: Vec3 = Vec3{ x: 0.0, y: 1.0, z: 0.0 };
+        const UP: Vec3 = Vec3{ x: 0.0, y: -1.0, z: 0.0 };
 
         let dir = dir.normalize();
 
@@ -136,7 +136,7 @@ impl Mat4 {
             w: Vec4::new(0.0, 0.0, 0.0, 1.0),
         };
 
-        view = view * Mat4::translation(pos);
+        view = Mat4::translation(pos * -1.0) * view;
 
         view
     }
@@ -204,22 +204,22 @@ impl ops::Mul<Mat4> for Mat4 {
             _mm_add_ps(
                 _mm_add_ps(
                     _mm_mul_ps(
-                        _mm_set_ps1(self.x.x),
-                        _mm_set_ps(rhs.x.w, rhs.x.z, rhs.x.y, rhs.x.x)
+                        _mm_set_ps1(rhs.x.x),
+                        _mm_set_ps(self.x.w, self.x.z, self.x.y, self.x.x)
                     ),
                     _mm_mul_ps(
-                        _mm_set_ps1(self.x.y),
-                        _mm_set_ps(rhs.y.w, rhs.y.z, rhs.y.y, rhs.y.x),
+                        _mm_set_ps1(rhs.x.y),
+                        _mm_set_ps(self.y.w, self.y.z, self.y.y, self.y.x),
                     )
                 ),
                 _mm_add_ps(
                     _mm_mul_ps(
-                        _mm_set_ps1(self.x.z),
-                        _mm_set_ps(rhs.z.w, rhs.z.z, rhs.z.y, rhs.z.x)
+                        _mm_set_ps1(rhs.x.z),
+                        _mm_set_ps(self.z.w, self.z.z, self.z.y, self.z.x)
                     ),
                     _mm_mul_ps(
-                        _mm_set_ps1(self.x.w),
-                        _mm_set_ps(rhs.w.w, rhs.w.z, rhs.w.y, rhs.w.x),
+                        _mm_set_ps1(rhs.x.w),
+                        _mm_set_ps(self.w.w, self.w.z, self.w.y, self.w.x),
                     )
                 ),
             );
@@ -227,22 +227,22 @@ impl ops::Mul<Mat4> for Mat4 {
             _mm_add_ps(
                 _mm_add_ps(
                     _mm_mul_ps(
-                        _mm_set_ps1(self.y.x),
-                        _mm_set_ps(rhs.x.w, rhs.x.z, rhs.x.y, rhs.x.x)
+                        _mm_set_ps1(rhs.y.x),
+                        _mm_set_ps(self.x.w, self.x.z, self.x.y, self.x.x)
                     ),
                     _mm_mul_ps(
-                        _mm_set_ps1(self.y.y),
-                        _mm_set_ps(rhs.y.w, rhs.y.z, rhs.y.y, rhs.y.x),
+                        _mm_set_ps1(rhs.y.y),
+                        _mm_set_ps(self.y.w, self.y.z, self.y.y, self.y.x),
                     )
                 ),
                 _mm_add_ps(
                     _mm_mul_ps(
-                        _mm_set_ps1(self.y.z),
-                        _mm_set_ps(rhs.z.w, rhs.z.z, rhs.z.y, rhs.z.x)
+                        _mm_set_ps1(rhs.y.z),
+                        _mm_set_ps(self.z.w, self.z.z, self.z.y, self.z.x)
                     ),
                     _mm_mul_ps(
-                        _mm_set_ps1(self.y.w),
-                        _mm_set_ps(rhs.w.w, rhs.w.z, rhs.w.y, rhs.w.x),
+                        _mm_set_ps1(rhs.y.w),
+                        _mm_set_ps(self.w.w, self.w.z, self.w.y, self.w.x),
                     )
                 ),
             );
@@ -250,22 +250,22 @@ impl ops::Mul<Mat4> for Mat4 {
             _mm_add_ps(
                 _mm_add_ps(
                     _mm_mul_ps(
-                        _mm_set_ps1(self.z.x),
-                        _mm_set_ps(rhs.x.w, rhs.x.z, rhs.x.y, rhs.x.x)
+                        _mm_set_ps1(rhs.z.x),
+                        _mm_set_ps(self.x.w, self.x.z, self.x.y, self.x.x)
                     ),
                     _mm_mul_ps(
-                        _mm_set_ps1(self.z.y),
-                        _mm_set_ps(rhs.y.w, rhs.y.z, rhs.y.y, rhs.y.x),
+                        _mm_set_ps1(rhs.z.y),
+                        _mm_set_ps(self.y.w, self.y.z, self.y.y, self.y.x),
                     )
                 ),
                 _mm_add_ps(
                     _mm_mul_ps(
-                        _mm_set_ps1(self.z.z),
-                        _mm_set_ps(rhs.z.w, rhs.z.z, rhs.z.y, rhs.z.x)
+                        _mm_set_ps1(rhs.z.z),
+                        _mm_set_ps(self.z.w, self.z.z, self.z.y, self.z.x)
                     ),
                     _mm_mul_ps(
-                        _mm_set_ps1(self.z.w),
-                        _mm_set_ps(rhs.w.w, rhs.w.z, rhs.w.y, rhs.w.x),
+                        _mm_set_ps1(rhs.z.w),
+                        _mm_set_ps(self.w.w, self.w.z, self.w.y, self.w.x),
                     )
                 ),
             );
@@ -273,22 +273,22 @@ impl ops::Mul<Mat4> for Mat4 {
             _mm_add_ps(
                 _mm_add_ps(
                     _mm_mul_ps(
-                        _mm_set_ps1(self.w.x),
-                        _mm_set_ps(rhs.x.w, rhs.x.z, rhs.x.y, rhs.x.x)
+                        _mm_set_ps1(rhs.w.x),
+                        _mm_set_ps(self.x.w, self.x.z, self.x.y, self.x.x)
                     ),
                     _mm_mul_ps(
-                        _mm_set_ps1(self.w.y),
-                        _mm_set_ps(rhs.y.w, rhs.y.z, rhs.y.y, rhs.y.x),
+                        _mm_set_ps1(rhs.w.y),
+                        _mm_set_ps(self.y.w, self.y.z, self.y.y, self.y.x),
                     )
                 ),
                 _mm_add_ps(
                     _mm_mul_ps(
-                        _mm_set_ps1(self.w.z),
-                        _mm_set_ps(rhs.z.w, rhs.z.z, rhs.z.y, rhs.z.x)
+                        _mm_set_ps1(rhs.w.z),
+                        _mm_set_ps(self.z.w, self.z.z, self.z.y, self.z.x)
                     ),
                     _mm_mul_ps(
-                        _mm_set_ps1(self.w.w),
-                        _mm_set_ps(rhs.w.w, rhs.w.z, rhs.w.y, rhs.w.x),
+                        _mm_set_ps1(rhs.w.w),
+                        _mm_set_ps(self.w.w, self.w.z, self.w.y, self.w.x),
                     )
                 ),
             );
