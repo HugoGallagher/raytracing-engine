@@ -1,12 +1,14 @@
 use std::ops;
 
 #[derive(Copy, Clone)]
+#[repr(C)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
 }
 
 #[derive(Copy, Clone)]
+#[repr(C)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -14,6 +16,7 @@ pub struct Vec3 {
 }
 
 #[derive(Copy, Clone)]
+#[repr(C)]
 pub struct Vec4 {
     pub x: f32,
     pub y: f32,
@@ -116,16 +119,6 @@ impl Vec4 {
             w: 0.0,
         }
     }
-
-    pub fn from_vec3(v: Vec3) -> Vec4 {
-        Vec4 { 
-            x: v.x,
-            y: v.y,
-            z: v.z,
-            w: 0.0,
-        }
-    }
-
     pub fn normalize(&self) -> Vec4 {
         let len = (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt();
 
@@ -139,6 +132,23 @@ impl Vec4 {
 
     pub fn len(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt()
+    }
+
+    pub fn from_vec3(v: Vec3) -> Vec4 {
+        Vec4 { 
+            x: v.x,
+            y: v.y,
+            z: v.z,
+            w: 0.0,
+        }
+    }
+
+    pub fn to_vec3(&self) -> Vec3 {
+        Vec3 { 
+            x: self.x,
+            y: self.y,
+            z: self.z,
+        }
     }
 }
 
@@ -185,6 +195,17 @@ impl ops::Sub<Vec3> for Vec3 {
         }
     }
 }
+impl ops::Mul<f32> for Vec3 {
+    type Output = Vec3;
+
+    fn mul(self, rhs: f32) -> Vec3 {
+        Vec3 {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+        }
+    }
+}
 
 impl ops::Add<Vec4> for Vec4 {
     type Output = Vec4;
@@ -208,6 +229,12 @@ impl ops::Sub<Vec4> for Vec4 {
             z: self.z - rhs.z,
             w: self.w - rhs.w,
         }
+    }
+}
+
+impl std::fmt::Display for Vec3 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "x: {}, y: {}, z: {}", self.x, self.y, self.z)
     }
 }
 impl std::fmt::Display for Vec4 {

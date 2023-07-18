@@ -2,7 +2,7 @@ use ash::vk;
 
 use crate::renderer::{core::Core, image};
 use crate::renderer::device::Device;
-use crate::renderer::image::{Image2D, Image2DBuilder};
+use crate::renderer::image::{Image, ImageBuilder};
 use crate::renderer::commands::Commands;
 use crate::renderer::descriptors::Descriptors;
 
@@ -24,7 +24,7 @@ impl  ImageDescriptorBuilder {
         }
     }
 
-    pub fn images(&self, images: &Vec<Image2D>) -> ImageDescriptorBuilder {
+    pub fn images(&self, images: &Vec<Image>) -> ImageDescriptorBuilder {
         let image_datas = images.iter().map(|image| { ImageData { image: image.image, view: image.view} }).collect();
         ImageDescriptorBuilder {
             image_datas: Some(image_datas),

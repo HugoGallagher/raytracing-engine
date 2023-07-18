@@ -2,14 +2,14 @@ use ash::vk;
 
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
-use crate::renderer::image::Image2D;
+use crate::renderer::image::Image;
 
 pub struct Swapchain {
     pub swapchain_init: ash::extensions::khr::Swapchain,
     pub swapchain: vk::SwapchainKHR,
 
     pub image_count: u32,
-    pub images: Vec<Image2D>,
+    pub images: Vec<Image>,
 }
 
 impl Swapchain {
@@ -54,7 +54,7 @@ impl Swapchain {
 
         let image_handles = swapchain_init.get_swapchain_images(swapchain).unwrap();
         
-        let images: Vec<Image2D> = image_handles.iter().map(|&i| {
+        let images: Vec<Image> = image_handles.iter().map(|&i| {
             let image_view_ci = vk::ImageViewCreateInfo::builder()
                 .image(i)
                 .view_type(vk::ImageViewType::TYPE_2D)
@@ -74,14 +74,20 @@ impl Swapchain {
                 });
 
             let image_view = d.device.create_image_view(&image_view_ci, None).unwrap();
+            
+            let extent = vk::Extent3D {
+                width: d.surface_extent.width,
+                height: d.surface_extent.height,
+                depth: 1,
+            };
 
-            Image2D {
+            Image {
                 image: i,
                 view: image_view,
                 memory: None,
                 width: d.surface_extent.width,
                 height: d.surface_extent.height,
-                extent: d.surface_extent,
+                extent,
             }
         }).collect();
 

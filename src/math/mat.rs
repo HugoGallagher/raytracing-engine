@@ -1,15 +1,17 @@
-use std::{ops, mem};
+use std::ops;
 
 use crate::math::vec::{Vec2, Vec3, Vec4};
 use crate::math::quat::Quat;
 
 #[derive(Copy, Clone)]
+#[repr(C)]
 pub struct Mat2 {
     pub x: Vec2,
     pub y: Vec2,
 }
 
 #[derive(Copy, Clone)]
+#[repr(C)]
 pub struct Mat4 {
     pub x: Vec4,
     pub y: Vec4,
@@ -101,12 +103,63 @@ impl Mat4 {
         }
     }
 
+    pub fn translation(pos: Vec3) -> Mat4 {
+        Mat4 {
+            x: Vec4::new(1.0, 0.0, 0.0, pos.x),
+            y: Vec4::new(0.0, 1.0, 0.0, pos.y),
+            z: Vec4::new(0.0, 0.0, 1.0, pos.z),
+            w: Vec4::new(0.0, 0.0, 0.0, 1.0),
+        }
+    }
+
     pub fn transpose(&self) -> Mat4 {
         Mat4 {
             x: Vec4::new(self.x.x, self.y.x, self.z.x, self.w.x),
             y: Vec4::new(self.x.y, self.y.y, self.z.y, self.w.y),
             z: Vec4::new(self.x.z, self.y.z, self.z.z, self.w.z),
             w: Vec4::new(self.x.w, self.y.w, self.z.w, self.w.w),
+        }
+    }
+
+    pub fn view(dir: Vec3, pos: Vec3) -> Mat4 {
+        const UP: Vec3 = Vec3{ x: 0.0, y: 1.0, z: 0.0 };
+
+        let dir = dir.normalize();
+
+        let right = Vec3::cross(dir, UP).normalize();
+        let up = Vec3::cross(right, dir);
+
+        let mut view = Mat4 {
+            x: Vec4::new(right.x, right.y, right.z, 0.0),
+            y: Vec4::new(up.x, up.y, up.z, 0.0),
+            z: Vec4::new(dir.x, dir.y, dir.z, 0.0),
+            w: Vec4::new(0.0, 0.0, 0.0, 1.0),
+        };
+
+        view = view * Mat4::translation(pos);
+
+        view
+    }
+
+    pub fn perspective(ratio: f32, fov: f32, near: f32, far: f32) -> Mat4 {
+        let height = (fov / 2.0).tan();
+        let width = height * ratio;
+        
+        Mat4 {
+            x: Vec4::new(1.0 / width, 0.0, 0.0, 0.0),
+            y: Vec4::new(0.0, 1.0 / height, 0.0, 0.0),
+            z: Vec4::new(0.0, 0.0, 1.0 / (far - near), -near / (far - near)),
+            w: Vec4::new(0.0, 0.0, 1.0, 0.0),
+        }
+    }
+
+    // doesnt work :(
+    pub fn orthogonal(width: f32, height: f32, near: f32, far: f32) -> Mat4 {
+        Mat4 {
+            x: Vec4::new(1.0 / width, 0.0, 0.0, 0.0),
+            y: Vec4::new(0.0, 1.0 / height, 0.0, 0.0),
+            z: Vec4::new(0.0, 0.0, 1.0 / (far - near), -near / (far - near)),
+            w: Vec4::new(0.0, 0.0, 0.0, 1.0),
         }
     }
 }
@@ -270,5 +323,11 @@ impl ops::Mul<Vec4> for Mat4 {
             z: self.z.x * rhs.x + self.z.y * rhs.y + self.z.z * rhs.z + self.z.w * rhs.w,
             w: self.w.x * rhs.x + self.w.y * rhs.y + self.w.z * rhs.z + self.w.w * rhs.w,
         }
+    }
+}
+
+impl std::fmt::Display for Mat4 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Mat4:\n\tx: {},\n\ty: {},\n\tz: {},\n\tw: {}", self.x, self.y, self.z, self.w)
     }
 }

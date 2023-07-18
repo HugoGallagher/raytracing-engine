@@ -2,12 +2,12 @@ use std::ffi::CString;
 
 use ash::vk::{self, RenderPass};
 
-use crate::renderer::core::Core;
+use crate::renderer::{core::Core, image::ImageBuilder};
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::Descriptors;
 use crate::renderer::swapchain::Swapchain;
 use crate::renderer::shader::Shader;
-use crate::renderer::image::Image2D;
+use crate::renderer::image::Image;
 use crate::renderer::push_constant::PushConstant;
 use crate::renderer::vertex_buffer::VertexBuffer;
 
@@ -18,10 +18,12 @@ pub struct GraphicsPipeline {
 
     pub viewport: vk::Viewport,
     pub scissor: vk::Rect2D,
+    
+    pub depth_image: Option<Image>,
 }
 
 impl GraphicsPipeline {
-    pub unsafe fn new(c: &Core, d: &Device, target_res: (u32, u32), vertex_buffer: Option<&VertexBuffer>, descriptor_set_layout: Option<vk::DescriptorSetLayout>, push_constant: Option<&PushConstant>, vs: &str, fs: &str) -> GraphicsPipeline {
+    pub unsafe fn new(c: &Core, d: &Device, target_res: (u32, u32), vertex_buffer: Option<&VertexBuffer>, descriptor_set_layout: Option<vk::DescriptorSetLayout>, push_constant: Option<&PushConstant>, vs: &str, fs: &str, with_depth_buffer: bool) -> GraphicsPipeline {
         let vert_shader = Shader::new(d, vs, vk::ShaderStageFlags::VERTEX);
         let frag_shader = Shader::new(d, fs, vk::ShaderStageFlags::FRAGMENT);
 
@@ -76,8 +78,9 @@ impl GraphicsPipeline {
             .rasterizer_discard_enable(false)
             .polygon_mode(vk::PolygonMode::FILL)
             .line_width(1.0)
-            .cull_mode(vk::CullModeFlags::BACK)
-            .front_face(vk::FrontFace::CLOCKWISE)
+            .cull_mode(vk::CullModeFlags::NONE)
+            //.cull_mode(vk::CullModeFlags::BACK)
+            //.front_face(vk::FrontFace::CLOCKWISE)
             .depth_bias_enable(false);
 
         let multisample_state_ci = vk::PipelineMultisampleStateCreateInfo::builder()
@@ -136,7 +139,7 @@ impl GraphicsPipeline {
         
         let pipeline_layout = d.device.create_pipeline_layout(&pipeline_layout_ci, None).unwrap();
 
-        let render_pass_attachment = vk::AttachmentDescription {
+        let mut attachment_descs = vec![vk::AttachmentDescription {
             format: d.surface_format.format,
             samples: vk::SampleCountFlags::TYPE_1,
             load_op: vk::AttachmentLoadOp::CLEAR,
@@ -144,35 +147,88 @@ impl GraphicsPipeline {
             initial_layout: vk::ImageLayout::UNDEFINED,
             final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
             ..Default::default()
-        };
+        }];
 
-        let color_attachment_references = [vk::AttachmentReference {
+        let color_attachment_refs = vec![vk::AttachmentReference {
             attachment: 0,
             layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
         }];
 
-        let subpass_description = vk::SubpassDescription::builder()
-            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-            .color_attachments(&color_attachment_references)
+        let mut depth_stencil_state_ci_builder = vk::PipelineDepthStencilStateCreateInfo::builder();
+
+        let mut depth_attachment_ref = None;
+        let mut depth_image = None;
+
+        if with_depth_buffer {
+            let depth_format = vk::Format::D32_SFLOAT;
+
+            depth_image = Some(ImageBuilder::new()
+                .width(target_res.0)
+                .height(target_res.1)
+                .format(depth_format)
+                .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
+                .build(c, d));
+
+            attachment_descs.push(vk::AttachmentDescription {
+                format: depth_format,
+                samples: vk::SampleCountFlags::TYPE_1,
+                load_op: vk::AttachmentLoadOp::CLEAR,
+                store_op: vk::AttachmentStoreOp::DONT_CARE,
+                initial_layout: vk::ImageLayout::UNDEFINED,
+                final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                ..Default::default()
+            });
+
+            depth_attachment_ref = Some(vk::AttachmentReference {
+                attachment: 1,
+                layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            });
+
+            depth_stencil_state_ci_builder = depth_stencil_state_ci_builder
+                .depth_test_enable(true)
+                .depth_write_enable(true)
+                .depth_bounds_test_enable(false)
+                .stencil_test_enable(false)
+                .depth_compare_op(vk::CompareOp::LESS)
+        }
+
+        let depth_stencil_state_ci = depth_stencil_state_ci_builder
             .build();
+
+        let mut subpass_description = vk::SubpassDescription::builder()
+            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
+            .color_attachments(&color_attachment_refs);
+
+        let subpass_description = match depth_attachment_ref {
+            Some(depth_ref) => subpass_description.depth_stencil_attachment(&depth_ref).build(),
+            None => subpass_description.build(),
+        };
+
+        let mut subpass_dep_stage_mask = vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT;
+        let mut subpass_dep_access_mask = vk::AccessFlags::COLOR_ATTACHMENT_WRITE;
+
+        if with_depth_buffer {
+            subpass_dep_stage_mask |= vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS;
+            subpass_dep_access_mask |= vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE;
+        }
         
         let subpass_dependency = vk::SubpassDependency::builder()
             .src_subpass(vk::SUBPASS_EXTERNAL)
             .dst_subpass(0)
-            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+            .src_stage_mask(subpass_dep_stage_mask)
+            .dst_stage_mask(subpass_dep_stage_mask)
+            .dst_access_mask(subpass_dep_access_mask)
             .build();
 
         let render_pass_ci = vk::RenderPassCreateInfo::builder()
-            .attachments(&[render_pass_attachment])
+            .attachments(&attachment_descs)
             .subpasses(&[subpass_description])
             .dependencies(&[subpass_dependency])
             .build();
 
         let render_pass = d.device.create_render_pass(&render_pass_ci, None).unwrap();
 
-        let pipeline_ci = vk::GraphicsPipelineCreateInfo::builder()
+        let mut pipeline_ci_builder = vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stage_cis)
             .input_assembly_state(&input_assembly_state_ci)
             .vertex_input_state(&vertex_input_state_ci)
@@ -183,18 +239,27 @@ impl GraphicsPipeline {
             .color_blend_state(&color_blend_state_ci)
             .layout(pipeline_layout)
             .render_pass(render_pass)
-            .subpass(0)
+            .subpass(0);
+
+        if with_depth_buffer {
+            pipeline_ci_builder = pipeline_ci_builder
+                .depth_stencil_state(&depth_stencil_state_ci);
+        }
+    
+        let pipeline_ci = pipeline_ci_builder
             .build();
 
         let pipeline = d.device.create_graphics_pipelines(vk::PipelineCache::null(), &[pipeline_ci], None).unwrap()[0];
 
         GraphicsPipeline {
-            pipeline: pipeline,
-            pipeline_layout: pipeline_layout,
-            render_pass: render_pass,
+            pipeline,
+            pipeline_layout,
+            render_pass,
 
-            viewport: viewport,
-            scissor: scissor,
+            viewport,
+            scissor,
+
+            depth_image,
         }
     }
 }

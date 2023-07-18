@@ -9,7 +9,7 @@ use crate::renderer::push_constant::{PushConstant, PushConstantBuilder};
 use crate::renderer::commands::Commands;
 use crate::renderer::compute_pass::{ComputePass, ComputePassDispatchInfo};
 use crate::renderer::buffer::{Buffer, BufferBuilder};
-use crate::renderer::image::{Image2D, Image2DBuilder};
+use crate::renderer::image::{Image, ImageBuilder};
 
 pub struct ComputeLayer {
     pub count: usize,

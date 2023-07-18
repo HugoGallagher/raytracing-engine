@@ -100,7 +100,6 @@ impl Buffer {
         let mut usage = usage;
 
         let mut staging_buffer: Option<Buffer> = None;
-        let mut transfer_commands: Option<Commands> = None;
 
         if !host_visible {
             assert!(data.is_some(), "Buffer is not device local but no data is provided");
@@ -115,8 +114,6 @@ impl Buffer {
             usage |= vk::BufferUsageFlags::TRANSFER_DST;
 
             staging_buffer.unwrap().fill(d, data.unwrap(), size);
-
-            transfer_commands = Some(Commands::new(d, d.queue_graphics.1, 1, true));
         }
         
         let buffer_ci = vk::BufferCreateInfo::builder()
@@ -126,7 +123,8 @@ impl Buffer {
 
         let buffer = d.device.create_buffer(&buffer_ci, None).unwrap();
 
-        let memory_type_index = d.get_memory_type(c, properties, buffer);
+        let memory_requirements = d.device.get_buffer_memory_requirements(buffer);
+        let memory_type_index = d.get_memory_type(c, properties, memory_requirements);
 
         let memory_alloc_i = vk::MemoryAllocateInfo::builder()
             .allocation_size(size as u64)
@@ -147,7 +145,9 @@ impl Buffer {
         }
 
         if !host_visible {
-            transfer_commands.as_ref().unwrap().record_one(d, 0, |b| {
+            let transfer_commands = Commands::new(d, d.queue_graphics.1, 1, true);
+
+            transfer_commands.record_one(d, 0, |b| {
                 let buffer_copy = vk::BufferCopy::builder()
                     .size(size as u64)
                     .build();
@@ -156,7 +156,7 @@ impl Buffer {
             });
 
             let submit_i = vk::SubmitInfo::builder()
-                .command_buffers(&[transfer_commands.unwrap().buffers[0]])
+                .command_buffers(&[transfer_commands.buffers[0]])
                 .build();
 
             d.device.queue_submit(d.queue_graphics.0, &[submit_i], vk::Fence::null()).unwrap();

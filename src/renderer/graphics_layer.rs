@@ -7,7 +7,7 @@ use crate::renderer::commands::Commands;
 use crate::renderer::graphics_pass::{GraphicsPass, GraphicsPassDrawInfo};
 use crate::renderer::buffer::{Buffer, BufferBuilder};
 use crate::renderer::vertex_buffer::VertexBuffer;
-use crate::renderer::image::{Image2D, Image2DBuilder};
+use crate::renderer::image::{Image, ImageBuilder};
 use crate::renderer::push_constant::PushConstantBuilder;
 use crate::renderer::vertex_buffer::VertexAttributes;
 
@@ -29,8 +29,8 @@ impl GraphicsLayer {
         }
     }
 
-    pub unsafe fn add_pass<T: VertexAttributes>(&mut self, c: &Core, d: &Device, targets: &Vec<Image2D>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, draw_info: GraphicsPassDrawInfo) {
-        self.passes.push(GraphicsPass::new(c, d, targets, verts, indices, descriptors_builder, push_constant_builder, vs, fs, draw_info));
+    pub unsafe fn add_pass<T: VertexAttributes>(&mut self, c: &Core, d: &Device, targets: &Vec<Image>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, with_depth_buffer: bool, draw_info: GraphicsPassDrawInfo) {
+        self.passes.push(GraphicsPass::new(c, d, targets, verts, indices, descriptors_builder, push_constant_builder, vs, fs, with_depth_buffer, draw_info));
     }
 
     pub unsafe fn fill_push_constant<T>(&mut self, pass_index: usize, data: &T) {
@@ -40,7 +40,11 @@ impl GraphicsLayer {
     pub unsafe fn record_one(&self, d: &Device, i: usize, present_index: usize) {
         self.commands.record_one(d, i, |b| {
             for pass in &self.passes {
-                let clear_values = [vk::ClearValue { color: vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}}];
+                let mut clear_values = vec![vk::ClearValue { color: vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}}];
+
+                if pass.pipeline.depth_image.is_some() {
+                    clear_values.push(vk::ClearValue { depth_stencil: vk::ClearDepthStencilValue { depth: 1.0, stencil: 0} });
+                }
 
                 let rect = pass.pipeline.scissor;
 

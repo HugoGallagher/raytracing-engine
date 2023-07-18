@@ -2,7 +2,7 @@ use ash::vk;
 
 use crate::renderer::{core::Core, sampler, image};
 use crate::renderer::device::Device;
-use crate::renderer::image::Image2D;
+use crate::renderer::image::Image;
 use crate::renderer::sampler::Sampler;
 use crate::renderer::descriptors::Descriptors;
 use crate::renderer::swapchain::Swapchain;
@@ -27,7 +27,7 @@ impl SamplerDescriptorBuilder {
         }
     }
 
-    pub fn images(&self, images: &Vec<Image2D>) -> SamplerDescriptorBuilder {
+    pub fn images(&self, images: &Vec<Image>) -> SamplerDescriptorBuilder {
         let image_datas = images.iter().map(|image| { ImageData { image: image.image, view: image.view} }).collect();
         SamplerDescriptorBuilder {
             image_datas: Some(image_datas),

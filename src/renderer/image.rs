@@ -5,85 +5,103 @@ use crate::renderer::device::Device;
 use crate::renderer::sampler::Sampler;
 
 #[derive(Copy, Clone)]
-pub struct Image2D {
+pub struct Image {
     pub image: vk::Image,
     pub view: vk::ImageView,
     pub memory: Option<vk::DeviceMemory>,
     pub width: u32,
     pub height: u32,
-    pub extent: vk::Extent2D,
+    pub extent: vk::Extent3D,
 }
 
 #[derive(Copy, Clone)]
-pub struct Image2DBuilder {
+pub struct ImageBuilder {
     pub width: Option<u32>,
     pub height: Option<u32>,
+    pub depth: Option<u32>,
     pub usage: Option<vk::ImageUsageFlags>,
     pub format: Option<vk::Format>,
 }
 
-impl Image2DBuilder {
-    pub fn new() -> Image2DBuilder {
-        Image2DBuilder {
+impl ImageBuilder {
+    pub fn new() -> ImageBuilder {
+        ImageBuilder {
             width: None,
             height: None,
+            depth: None,
             usage: None,
             format: None,
         }
     }
-    pub fn width(&self, width: u32) -> Image2DBuilder {
-        Image2DBuilder {
+    pub fn width(&self, width: u32) -> ImageBuilder {
+        ImageBuilder {
             width: Some(width),
             height: self.height,
+            depth: self.depth,
             usage: self.usage,
             format: self.format,
         }
     }
     
-    pub fn height(&self, height: u32) -> Image2DBuilder {
-        Image2DBuilder {
+    pub fn height(&self, height: u32) -> ImageBuilder {
+        ImageBuilder {
             width: self.width,
             height: Some(height),
+            depth: self.depth,
             usage: self.usage,
             format: self.format,
         }
     }
     
-    pub fn usage(&self, usage: vk::ImageUsageFlags) -> Image2DBuilder {
-        Image2DBuilder {
+    pub fn depth(&self, depth: u32) -> ImageBuilder {
+        ImageBuilder {
             width: self.width,
             height: self.height,
+            depth: Some(depth),
+            usage: self.usage,
+            format: self.format,
+        }
+    }
+    
+    pub fn usage(&self, usage: vk::ImageUsageFlags) -> ImageBuilder {
+        ImageBuilder {
+            width: self.width,
+            height: self.height,
+            depth: self.depth,
             usage: Some(usage),
             format: self.format,
         }
     }
     
-    pub fn format(&self, format: vk::Format) -> Image2DBuilder {
-        Image2DBuilder {
+    pub fn format(&self, format: vk::Format) -> ImageBuilder {
+        ImageBuilder {
             width: self.width,
             height: self.height,
+            depth: self.depth,
             usage: self.usage,
             format: Some(format),
         }
     }
 
-    pub unsafe fn build(&self, c: &Core, d: &Device) -> Image2D {
-        Image2D::new(
+    pub unsafe fn build(&self, c: &Core, d: &Device) -> Image {
+        Image::new(
             c, d,
             self.width.expect("Error: Image builder has no specified width"),
             self.height.expect("Error: Image builder has no specified height"),
+            self.depth,
             self.usage.expect("Error: Image builder has no specified usage"),
             self.format.expect("Error: Image builder has no specified format"),
         )
     }
 
-    pub unsafe fn build_many(&self, c: &Core, d: &Device, count: usize) -> Vec<Image2D> {
-        let mut images = Vec::<Image2D>::new();
+    pub unsafe fn build_many(&self, c: &Core, d: &Device, count: usize) -> Vec<Image> {
+        let mut images = Vec::<Image>::new();
         for _ in 0..count {
-            images.push(Image2D::new(
+            images.push(Image::new(
                 c, d,
                 self.width.expect("Error: Image builder has no specified width"),
                 self.height.expect("Error: Image builder has no specified height"),
+                self.depth,
                 self.usage.expect("Error: Image builder has no specified usage"),
                 self.format.expect("Error: Image builder has no specified format"),
             ));
@@ -93,22 +111,22 @@ impl Image2DBuilder {
     }
 }
 
-impl Image2D {
-    pub unsafe fn new(c: &Core, d: &Device, w: u32, h: u32, u: vk::ImageUsageFlags, format: vk::Format) -> Image2D {
-        let extent_3d = vk::Extent3D::builder()
+impl Image {
+    pub unsafe fn new(c: &Core, d: &Device, w: u32, h: u32, de: Option<u32>, u: vk::ImageUsageFlags, format: vk::Format) -> Image {
+        let (image_type, depth, extent_depth) = match de {
+            Some(dep) => (vk::ImageType::TYPE_3D, Some(dep), dep),
+            None => (vk::ImageType::TYPE_2D, None, 1),
+        };
+        
+        let extent = vk::Extent3D::builder()
             .width(w)
             .height(h)
-            .depth(1)
+            .depth(extent_depth)
             .build();
 
-        let extent = vk::Extent2D {
-            width: w,
-            height: h,
-        };
-
         let image_ci = vk::ImageCreateInfo::builder()
-            .image_type(vk::ImageType::TYPE_2D)
-            .extent(extent_3d)
+            .image_type(image_type)
+            .extent(extent)
             .mip_levels(1)
             .array_layers(1)
             .format(format)
@@ -120,13 +138,7 @@ impl Image2D {
         let image = d.device.create_image(&image_ci, None).unwrap();
 
         let memory_requirements = d.device.get_image_memory_requirements(image);
-        let memory_type_index = c.instance.get_physical_device_memory_properties(d.physical_device).memory_types.iter().enumerate().find_map(|(i, m)| {
-            if (memory_requirements.memory_type_bits & (1 << i)) != 0 && (m.property_flags & vk::MemoryPropertyFlags::DEVICE_LOCAL) == vk::MemoryPropertyFlags::DEVICE_LOCAL {
-                Some(i)
-            } else {
-                None
-            }
-        }).unwrap();
+        let memory_type_index = d.get_memory_type(c, vk::MemoryPropertyFlags::DEVICE_LOCAL, memory_requirements);
 
         let memory_alloc_i = vk::MemoryAllocateInfo::builder()
             .allocation_size(memory_requirements.size)
@@ -134,6 +146,11 @@ impl Image2D {
 
         let memory = d.device.allocate_memory(&memory_alloc_i, None).unwrap();
         d.device.bind_image_memory(image, memory, 0).unwrap();
+
+        let image_aspect = match u {
+            vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT => vk::ImageAspectFlags::DEPTH,
+            _ => vk::ImageAspectFlags::COLOR,
+        };
 
         let view_ci = vk::ImageViewCreateInfo::builder()
             .image(image)
@@ -146,7 +163,7 @@ impl Image2D {
                 a: vk::ComponentSwizzle::A,
            })
             .subresource_range(vk::ImageSubresourceRange {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
+                aspect_mask: image_aspect,
                 base_mip_level: 0,
                 level_count: 1,
                 base_array_layer: 0,
@@ -155,17 +172,17 @@ impl Image2D {
 
         let view = d.device.create_image_view(&view_ci, None).unwrap();
 
-        Image2D {
-            image: image,
-            view: view,
+        Image {
+            image,
+            view,
             memory: Some(memory),
             width: w,
             height: h,
-            extent: extent,
+            extent,
         }
     }
 
-    pub unsafe fn generate_samplers(c: &Core, d: &Device, images: &Vec<Image2D>) -> Vec<Sampler> {
+    pub unsafe fn generate_samplers(c: &Core, d: &Device, images: &Vec<Image>) -> Vec<Sampler> {
         let mut samplers = Vec::<Sampler>::new();
         for image in images {
             samplers.push(Sampler::new(c, d, image.view))

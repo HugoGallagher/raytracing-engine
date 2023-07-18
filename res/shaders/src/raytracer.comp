@@ -42,7 +42,7 @@ layout(std140, set = 0, binding = 0) readonly buffer Objects {
     tri tris[];
 } objs;
 
-layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img;
+layout(set = 0, binding = 1, rgba8) uniform writeonly Image img;
 
 collision_data collision(ray r, tri t) {
     if (dot(r.dir, t.normal) > 0) {
