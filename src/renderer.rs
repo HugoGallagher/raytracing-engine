@@ -26,7 +26,7 @@ use std::{mem, ffi::c_void, collections::HashMap};
 use ash::vk;
 use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
 
-use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}, mesh::Tri, compute_pass::ComputePassDispatchInfo, graphics_pass::GraphicsPassDrawInfo}};
+use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{descriptors::{storage_descriptor, image_descriptor, sampler_descriptor, uniform_descriptor}, mesh::Tri, compute_pass::{ComputePassDispatchInfo, ComputePassBuilder}, graphics_pass::{GraphicsPassDrawInfo, GraphicsPassBuilder}}};
 
 #[repr(C)]
 pub struct PushConstantData {
@@ -166,9 +166,16 @@ impl Renderer {
             z: 1
         };
 
-        compute_layer.add_pass(&core, &device, Some(compute_descriptors_builder), Some(compute_push_constant_builder), "raytracer.comp", compute_pass_dispatch_info);
+        let compute_pass = ComputePassBuilder::new()
+            .compute_shader("raytracer.comp")
+            .descriptors_builder(compute_descriptors_builder)
+            .push_constant_builder(compute_push_constant_builder)
+            .dispatch_info(compute_pass_dispatch_info)
+            .build(&core, &device);
 
-        let graphics_descriptors_builder = descriptors::DescriptorsBuilder::new()
+        compute_layer.add_pass(compute_pass);
+
+        let quad_pass_descriptors_builder = descriptors::DescriptorsBuilder::new()
             .count(FRAMES_IN_FLIGHT as usize)
             .stage(vk::ShaderStageFlags::FRAGMENT)
             .add_sampler_builder(sampler_descriptor_builder);
@@ -215,9 +222,30 @@ impl Renderer {
             .size(mem::size_of::<MeshPushConstant>())
             .stage(vk::ShaderStageFlags::VERTEX);
 
-        graphics_layer.add_pass(&core, &device, &swapchain.images, None, None, Some(&quad_verts), Some(&quad_indices), Some(graphics_descriptors_builder), None, "draw_to_screen.vert", "draw_to_screen.frag", false ,quad_pass_draw_info);
-        graphics_layer.add_pass(&core, &device, &swapchain.images, Some(vk::Extent2D { width: 320, height: 180 }), None, Some(&mesh_verts), None, None, Some(mesh_push_constant_builder), "mesh.vert", "mesh.frag", true, mesh_pass_draw_info);
-        
+        let quad_pass = GraphicsPassBuilder::new()
+            .vertex_shader("draw_to_screen.vert")
+            .fragment_shader("draw_to_screen.frag")
+            .draw_info(quad_pass_draw_info)
+            .targets(&swapchain.images)
+            .verts(&quad_verts)
+            .vertex_indices(&quad_indices)
+            .descriptors_builder(quad_pass_descriptors_builder)
+            .build(&core, &device);
+
+        let mesh_pass = GraphicsPassBuilder::new()
+            .vertex_shader("mesh.vert")
+            .fragment_shader("mesh.frag")
+            .draw_info(mesh_pass_draw_info)
+            .targets(&swapchain.images)
+            .extent(vk::Extent2D { width: 320, height: 180 })
+            .verts(&mesh_verts)
+            .push_constant_builder(mesh_push_constant_builder)
+            .with_depth_buffer()
+            .build(&core, &device);
+
+        graphics_layer.add_pass::<Vertex>(quad_pass);
+        graphics_layer.add_pass::<MeshVertex>(mesh_pass);
+
         let mut frames = Vec::<frame::Frame>::new();
 
         for _ in 0..FRAMES_IN_FLIGHT {

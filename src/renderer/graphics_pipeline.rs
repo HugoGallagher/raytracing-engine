@@ -2,7 +2,7 @@ use std::ffi::CString;
 
 use ash::vk::{self, RenderPass};
 
-use crate::renderer::{core::Core, image::ImageBuilder};
+use crate::renderer::{core::Core, image::ImageBuilder, push_constant};
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::Descriptors;
 use crate::renderer::swapchain::Swapchain;

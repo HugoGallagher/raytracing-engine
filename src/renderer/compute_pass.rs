@@ -12,11 +12,56 @@ pub struct ComputePassDispatchInfo {
     pub z: u32,
 }
 
+pub struct ComputePassBuilder<'a> {
+    dispatch_info: Option<ComputePassDispatchInfo>,
+    cs: Option<&'a str>,
+    push_constant_builder: Option<PushConstantBuilder>,
+    descriptors_builder: Option<DescriptorsBuilder>,
+}
+
 pub struct ComputePass {
     pub push_constant: Option<PushConstant>,
     pub descriptors: Option<Descriptors>,
     pub pipeline: ComputePipeline,
     pub dispatch_info: ComputePassDispatchInfo,
+}
+
+impl <'a> ComputePassBuilder<'a> {
+    pub fn new() -> ComputePassBuilder<'a> {
+        ComputePassBuilder {
+            dispatch_info: None,
+            cs: None,
+            push_constant_builder: None,
+            descriptors_builder: None,
+        }
+    }
+
+    pub fn dispatch_info(mut self, dispatch_info: ComputePassDispatchInfo) -> ComputePassBuilder<'a> {
+        self.dispatch_info = Some(dispatch_info);
+
+        self
+    }
+
+    pub fn compute_shader(mut self, cs: &'a str) -> ComputePassBuilder<'a> {
+        self.cs = Some(cs);
+
+        self
+    }
+    pub fn push_constant_builder(mut self, push_constant_builder: PushConstantBuilder) -> ComputePassBuilder<'a> {
+        self.push_constant_builder = Some(push_constant_builder);
+
+        self
+    }
+
+    pub fn descriptors_builder(mut self, descriptors_builder: DescriptorsBuilder) -> ComputePassBuilder<'a> {
+        self.descriptors_builder = Some(descriptors_builder);
+
+        self
+    }
+
+    pub unsafe fn build(self, c: &Core, d: &Device) -> ComputePass {
+        ComputePass::new(c, d, self.descriptors_builder, self.push_constant_builder, self.cs.expect("Error: Compute pass builder has no compute shader"), self.dispatch_info.expect("Error: Compute pass builder has no dispatch info"))
+    }
 }
 
 impl ComputePass {

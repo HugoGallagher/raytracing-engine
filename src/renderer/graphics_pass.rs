@@ -10,6 +10,7 @@ use crate::renderer::framebuffer::Framebuffer;
 use crate::renderer::push_constant::PushConstant;
 use crate::renderer::image::Image;
 
+#[derive(Copy, Clone)]
 pub struct GraphicsPassDrawInfo {
     pub vertex_count: u32,
     pub index_count: u32,
@@ -17,6 +18,20 @@ pub struct GraphicsPassDrawInfo {
     pub first_vertex: u32,
     pub first_instance: u32,
     pub vertex_offset: i32,
+}
+
+pub struct GraphicsPassBuilder<'a, T: VertexAttributes> {
+    draw_info: Option<GraphicsPassDrawInfo>,
+    targets: Option<&'a Vec<Image>>,
+    extent: Option<vk::Extent2D>,
+    offset: Option<vk::Offset2D>,
+    vs: Option<&'a str>,
+    fs: Option<&'a str>,
+    verts: Option<&'a Vec<T>>,
+    vertex_indices: Option<&'a Vec<u32>>,
+    push_constant_builder: Option<PushConstantBuilder>,
+    descriptors_builder: Option<DescriptorsBuilder>,
+    with_depth_buffer: bool,
 }
 
 pub struct GraphicsPass {
@@ -27,6 +42,94 @@ pub struct GraphicsPass {
     pub framebuffers: Vec<Framebuffer>,
     pub draw_info: GraphicsPassDrawInfo,
     pub indexed: bool,
+}
+
+impl <'a, T: VertexAttributes> GraphicsPassBuilder<'a, T> {
+    pub fn new() -> GraphicsPassBuilder<'a, T> {
+        GraphicsPassBuilder {
+            draw_info: None,
+            targets: None,
+            extent: None,
+            offset: None,
+            vs: None,
+            fs: None,
+            verts: None,
+            vertex_indices: None,
+            push_constant_builder: None,
+            descriptors_builder: None,
+            with_depth_buffer: false,
+        }
+    }
+
+    pub fn draw_info(mut self, draw_info: GraphicsPassDrawInfo) -> GraphicsPassBuilder<'a, T> {
+        self.draw_info = Some(draw_info);
+
+        self
+    }
+
+    pub fn targets(mut self, targets: &'a Vec<Image>) -> GraphicsPassBuilder<'a, T> {
+        self.targets = Some(targets);
+
+        self
+    }
+
+    pub fn extent(mut self, extent: vk::Extent2D) -> GraphicsPassBuilder<'a, T> {
+        self.extent = Some(extent);
+
+        self
+    }
+
+    pub fn offset(mut self, offset: vk::Offset2D) -> GraphicsPassBuilder<'a, T> {
+        self.offset = Some(offset);
+
+        self
+    }
+
+    pub fn vertex_shader(mut self, vs: &'a str) -> GraphicsPassBuilder<'a, T> {
+        self.vs = Some(vs);
+
+        self
+    }
+
+    pub fn fragment_shader(mut self, fs: &'a str) -> GraphicsPassBuilder<'a, T> {
+        self.fs = Some(fs);
+
+        self
+    }
+
+    pub fn verts(mut self, verts: &'a Vec<T>) -> GraphicsPassBuilder<'a, T> {
+        self.verts = Some(verts);
+
+        self
+    }
+
+    pub fn vertex_indices(mut self, vertex_indices: &'a Vec<u32>) -> GraphicsPassBuilder<'a, T> {
+        self.vertex_indices = Some(vertex_indices);
+
+        self
+    }
+
+    pub fn push_constant_builder(mut self, push_constant_builder: PushConstantBuilder) -> GraphicsPassBuilder<'a, T> {
+        self.push_constant_builder = Some(push_constant_builder);
+
+        self
+    }
+
+    pub fn descriptors_builder(mut self, descriptors_builder: DescriptorsBuilder) -> GraphicsPassBuilder<'a, T> {
+        self.descriptors_builder = Some(descriptors_builder);
+
+        self
+    }
+
+    pub fn with_depth_buffer(mut self) -> GraphicsPassBuilder<'a, T> {
+        self.with_depth_buffer = true;
+
+        self
+    }
+
+    pub unsafe fn build(self, c: &Core, d: &Device) -> GraphicsPass {
+        GraphicsPass::new(c, d, self.targets.expect("Error: Graphics pass builder has no targets"), self.extent, self.offset, self.verts, self.vertex_indices, self.descriptors_builder, self.push_constant_builder, self.vs.expect("Error: Graphics pass builder has no vertex shader"), self.fs.expect("Error: Graphics pass builder has no fragment shader"), self.with_depth_buffer, self.draw_info.expect("Error: Graphics pass builder has no draw info"))
+    }
 }
 
 impl GraphicsPass {

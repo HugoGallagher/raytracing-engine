@@ -29,8 +29,8 @@ impl ComputeLayer {
         }
     }
 
-    pub unsafe fn add_pass(&mut self, c: &Core, d: &Device, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, cs: &str, dispatch_info: ComputePassDispatchInfo) {
-        self.passes.push(ComputePass::new(c, d, descriptors_builder, push_constant_builder, cs, dispatch_info));
+    pub unsafe fn add_pass(&mut self, pass: ComputePass) {
+        self.passes.push(pass);
     }
 
     pub unsafe fn fill_push_constant<T>(&mut self, pass_index: usize, data: &T) {
