@@ -98,6 +98,7 @@ impl Game {
         view_dir.z = self.rot.x.cos() * self.rot.y.cos();
         
         self.renderer.mesh_push_constant.view_proj = (Mat4::view(view_dir, self.pos) * Mat4::perspective(16.0 / 9.0, PI / 2.0, 0.0005, 100.0)).transpose();
+        //self.renderer.mesh_push_constant.view_proj = (Mat4::view(view_dir, self.pos) * Mat4::orthogonal(16.0 / 9.0, 0.5, 0.0005, 100.0)).transpose();
         
         //println!("{}", self.renderer.mesh_push_constant.model);
 

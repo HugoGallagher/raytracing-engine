@@ -153,8 +153,10 @@ impl Mat4 {
         }
     }
 
-    // doesnt work :(
-    pub fn orthogonal(width: f32, height: f32, near: f32, far: f32) -> Mat4 {
+    pub fn orthogonal(ratio: f32, zoom: f32, near: f32, far: f32) -> Mat4 {
+        let height = 1.0 / zoom;
+        let width = height * ratio;
+        
         Mat4 {
             x: Vec4::new(1.0 / width, 0.0, 0.0, 0.0),
             y: Vec4::new(0.0, 1.0 / height, 0.0, 0.0),
