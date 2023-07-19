@@ -160,11 +160,7 @@ impl Renderer {
             .size(mem::size_of::<PushConstantData>())
             .stage(vk::ShaderStageFlags::COMPUTE);
 
-        let compute_pass_dispatch_info = ComputePassDispatchInfo {
-            x: (1280 / 16) / DOWNSCALE + 1,
-            y: (720 / 16) / DOWNSCALE + 1,
-            z: 1
-        };
+        let compute_pass_dispatch_info = ComputePassDispatchInfo::new((1280 / 16) / DOWNSCALE + 1, (720 / 16) / DOWNSCALE + 1, 1);
 
         let compute_pass = ComputePassBuilder::new()
             .compute_shader("raytracer.comp")
@@ -175,30 +171,15 @@ impl Renderer {
 
         compute_layer.add_pass(compute_pass);
 
-        let quad_pass_descriptors_builder = descriptors::DescriptorsBuilder::new()
-            .count(FRAMES_IN_FLIGHT as usize)
-            .stage(vk::ShaderStageFlags::FRAGMENT)
-            .add_sampler_builder(sampler_descriptor_builder);
-
         let mut mesh_tris = Vec::<Tri>::with_capacity(2048);
         mesh::parse_obj(&mut mesh_tris, "res/meshes/torus.obj");
 
         let mut mesh_verts = Vec::<MeshVertex>::with_capacity(2048);
-
         for tri in mesh_tris {
             mesh_verts.push(MeshVertex { pos: tri.verts[0].to_vec3(), col: tri.normal.to_vec3() });
             mesh_verts.push(MeshVertex { pos: tri.verts[1].to_vec3(), col: tri.normal.to_vec3() });
             mesh_verts.push(MeshVertex { pos: tri.verts[2].to_vec3(), col: tri.normal.to_vec3() });
         }
-
-        let mesh_pass_draw_info = GraphicsPassDrawInfo {
-            vertex_count: mesh_verts.len() as u32,
-            index_count: 0,
-            instance_count: 1,
-            first_vertex: 0,
-            first_instance: 0,
-            vertex_offset: 0,
-        };
 
         let quad_verts = vec![
             Vertex { pos: Vec2::new(-1.0, -1.0) },
@@ -208,15 +189,14 @@ impl Renderer {
         ];
 
         let quad_indices = vec![0, 1, 2, 2, 3, 0];
-
-        let quad_pass_draw_info = GraphicsPassDrawInfo {
-            vertex_count: quad_verts.len() as u32,
-            index_count: quad_indices.len() as u32,
-            instance_count: 1,
-            first_vertex: 0,
-            first_instance: 0,
-            vertex_offset: 0,
-        };
+        
+        let quad_pass_draw_info = GraphicsPassDrawInfo::simple_indexed(quad_verts.len(), quad_indices.len());
+        let mesh_pass_draw_info = GraphicsPassDrawInfo::simple_vertex(mesh_verts.len());
+        
+        let quad_pass_descriptors_builder = descriptors::DescriptorsBuilder::new()
+            .count(FRAMES_IN_FLIGHT as usize)
+            .stage(vk::ShaderStageFlags::FRAGMENT)
+            .add_sampler_builder(sampler_descriptor_builder);
 
         let mesh_push_constant_builder = push_constant::PushConstantBuilder::new()
             .size(mem::size_of::<MeshPushConstant>())
@@ -247,7 +227,6 @@ impl Renderer {
         graphics_layer.add_pass::<MeshVertex>(mesh_pass);
 
         let mut frames = Vec::<frame::Frame>::new();
-
         for _ in 0..FRAMES_IN_FLIGHT {
             frames.push(frame::Frame::new(&device));
         }

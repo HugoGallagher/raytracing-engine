@@ -44,6 +44,30 @@ pub struct GraphicsPass {
     pub indexed: bool,
 }
 
+impl GraphicsPassDrawInfo {
+    pub fn simple_vertex(vertex_count: usize) -> GraphicsPassDrawInfo {
+        GraphicsPassDrawInfo {
+            vertex_count: vertex_count as u32,
+            index_count: 0,
+            instance_count: 1,
+            first_vertex: 0,
+            first_instance: 0,
+            vertex_offset: 0,
+        }
+    }
+
+    pub fn simple_indexed(vertex_count: usize, index_count: usize) -> GraphicsPassDrawInfo {
+        GraphicsPassDrawInfo {
+            vertex_count: vertex_count as u32,
+            index_count: index_count as u32,
+            instance_count: 1,
+            first_vertex: 0,
+            first_instance: 0,
+            vertex_offset: 0,
+        }
+    }
+}
+
 impl <'a, T: VertexAttributes> GraphicsPassBuilder<'a, T> {
     pub fn new() -> GraphicsPassBuilder<'a, T> {
         GraphicsPassBuilder {

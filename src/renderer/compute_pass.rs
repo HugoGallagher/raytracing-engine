@@ -26,6 +26,12 @@ pub struct ComputePass {
     pub dispatch_info: ComputePassDispatchInfo,
 }
 
+impl ComputePassDispatchInfo {
+    pub fn new(x: u32, y: u32, z: u32) -> ComputePassDispatchInfo {
+        ComputePassDispatchInfo { x, y, z }
+    }
+}
+
 impl <'a> ComputePassBuilder<'a> {
     pub fn new() -> ComputePassBuilder<'a> {
         ComputePassBuilder {
