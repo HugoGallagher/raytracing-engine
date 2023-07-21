@@ -113,7 +113,7 @@ impl Buffer {
 
             usage |= vk::BufferUsageFlags::TRANSFER_DST;
 
-            staging_buffer.unwrap().fill(d, data.unwrap(), size);
+            staging_buffer.unwrap().fill_from_ptr(d, data.unwrap(), size);
         }
         
         let buffer_ci = vk::BufferCreateInfo::builder()
@@ -141,7 +141,7 @@ impl Buffer {
         };
 
         if data.is_some() && host_visible {
-            buffer.fill(d, data.unwrap(), size);
+            buffer.fill_from_ptr(d, data.unwrap(), size);
         }
 
         if !host_visible {
@@ -166,7 +166,14 @@ impl Buffer {
         buffer
     }
 
-    pub unsafe fn fill(&self, d: &Device, p: *const c_void, s: usize) {
+    pub unsafe fn fill<T>(&self, d: &Device, data: &Vec<T>) {
+        let size = data.len() * std::mem::size_of::<T>();
+        let dst = d.device.map_memory(self.memory, 0, size as u64, vk::MemoryMapFlags::empty()).unwrap();
+        std::ptr::copy(data.as_ptr() as *const c_void, dst, size);
+        d.device.unmap_memory(self.memory);
+    }
+
+    pub unsafe fn fill_from_ptr(&self, d: &Device, p: *const c_void, s: usize) {
         let dst = d.device.map_memory(self.memory, 0, s as u64, vk::MemoryMapFlags::empty()).unwrap();
         std::ptr::copy(p, dst, s);
         d.device.unmap_memory(self.memory);

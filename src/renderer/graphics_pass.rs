@@ -22,7 +22,7 @@ pub struct GraphicsPassDrawInfo {
 
 pub struct GraphicsPassBuilder<'a, T: VertexAttributes> {
     draw_info: Option<GraphicsPassDrawInfo>,
-    targets: Option<&'a Vec<Image>>,
+    targets: Option<Vec<Image>>,
     extent: Option<vk::Extent2D>,
     offset: Option<vk::Offset2D>,
     vs: Option<&'a str>,
@@ -91,8 +91,8 @@ impl <'a, T: VertexAttributes> GraphicsPassBuilder<'a, T> {
         self
     }
 
-    pub fn targets(mut self, targets: &'a Vec<Image>) -> GraphicsPassBuilder<'a, T> {
-        self.targets = Some(targets);
+    pub fn targets(mut self, targets: &Vec<Image>) -> GraphicsPassBuilder<'a, T> {
+        self.targets = Some(targets.clone());
 
         self
     }
@@ -157,7 +157,7 @@ impl <'a, T: VertexAttributes> GraphicsPassBuilder<'a, T> {
 }
 
 impl GraphicsPass {
-    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, targets: &Vec<Image>, extent: Option<vk::Extent2D>, offset: Option<vk::Offset2D>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, with_depth_buffer: bool, draw_info: GraphicsPassDrawInfo) -> GraphicsPass {
+    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, targets: Vec<Image>, extent: Option<vk::Extent2D>, offset: Option<vk::Offset2D>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, descriptors_builder: Option<DescriptorsBuilder>, push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, with_depth_buffer: bool, draw_info: GraphicsPassDrawInfo) -> GraphicsPass {
         let descriptors = match descriptors_builder {
             Some(de_b) => Some(de_b.build(c, d)),
             None => None
@@ -192,7 +192,7 @@ impl GraphicsPass {
         
         let pipeline = GraphicsPipeline::new(c, d, target_rect, vertex_buffer.as_ref(), descriptor_set_layout, push_constant.as_ref(), vs, fs, with_depth_buffer);
 
-        let framebuffers = Framebuffer::new_many(d, &pipeline, targets, extent);
+        let framebuffers = Framebuffer::new_many(d, &pipeline, &targets, extent);
 
         let indexed = indices.is_some();
 

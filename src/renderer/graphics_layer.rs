@@ -1,40 +1,52 @@
+use std::collections::HashMap;
+
 use ash::vk;
 
-use crate::renderer::{core::Core, graphics_pass::GraphicsPassBuilder};
+use crate::renderer::{core::Core, graphics_pass::GraphicsPassBuilder, semaphore::Semaphore};
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::DescriptorsBuilder;
 use crate::renderer::commands::Commands;
 use crate::renderer::graphics_pass::{GraphicsPass, GraphicsPassDrawInfo};
 use crate::renderer::buffer::{Buffer, BufferBuilder};
-use crate::renderer::vertex_buffer::VertexBuffer;
-use crate::renderer::image::{Image, ImageBuilder};
-use crate::renderer::push_constant::PushConstantBuilder;
-use crate::renderer::vertex_buffer::VertexAttributes;
 
 pub struct GraphicsLayer {
     pub count: usize,
 
     pub commands: Commands,
     pub passes: Vec<GraphicsPass>,
+    pub pass_refs: HashMap<String, usize>,
+
+    pub semaphore: Semaphore,
+
+    pub present: bool,
 }
 
 impl GraphicsLayer {
-    pub unsafe fn new(c: &Core, d: &Device, count: usize) -> GraphicsLayer {
+    pub unsafe fn new(c: &Core, d: &Device, count: usize, present: bool) -> GraphicsLayer {
         let commands = Commands::new(d, d.queue_graphics.1, count, false);
+        let semaphore = Semaphore::new(d);
 
         GraphicsLayer {
             count,
             commands,
-            passes: Vec::<GraphicsPass>::new(),
+            passes: Vec::new(),
+            pass_refs: HashMap::new(),
+            semaphore,
+            present,
         }
     }
 
-    pub unsafe fn add_pass<T: VertexAttributes>(&mut self, pass: GraphicsPass) {
+    pub unsafe fn add_pass(&mut self, name: &str, pass: GraphicsPass) {
         self.passes.push(pass);
+        self.pass_refs.insert(name.to_string(), self.passes.len() - 1);
     }
 
-    pub unsafe fn fill_push_constant<T>(&mut self, pass_index: usize, data: &T) {
-        self.passes[pass_index].push_constant.as_mut().expect("Error: Graphics pass has no push constant to fill").set_data(data);
+    pub fn get_pass(&self, name: &str) -> &GraphicsPass {
+        &self.passes[*self.pass_refs.get(name).unwrap()]
+    }
+
+    pub unsafe fn fill_push_constant<T>(&mut self, name: &str, data: &T) {
+        self.passes[*self.pass_refs.get(name).unwrap()].push_constant.as_mut().expect("Error: Graphics pass has no push constant to fill").set_data(data);
     }
 
     pub unsafe fn record_one(&self, d: &Device, i: usize, present_index: usize) {

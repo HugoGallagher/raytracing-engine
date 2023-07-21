@@ -1,33 +1,26 @@
 use std::fs;
 use std::io::Read;
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::Ordering;
 
 use crate::math::vec::Vec3;
 use crate::math::vec::Vec4;
 
+pub trait FromObjTri {
+    fn from_obj_tri(tri: Tri) -> Self;
+}
+
 #[derive(Copy, Clone)]
-#[repr(C)]
 pub struct Tri {
     pub verts: [Vec4; 3],
     pub normal: Vec4,
-    pub col: Vec4,
-    pub mesh_id: u32,
-    pub a: u32,
-    pub b: u32,
-    pub c: u32,
 }
 
 impl Tri {
-    pub fn new(i: u32, v0: Vec3, v1: Vec3, v2: Vec3, c: Vec3) -> Tri {
+    pub fn new(v0: Vec3, v1: Vec3, v2: Vec3) -> Tri {
+        let normal = Vec4::from_vec3(Vec3::cross(v1 - v0, v2 - v0).normalize());
+        
         Tri {
             verts: [Vec4::from_vec3(v0), Vec4::from_vec3(v1), Vec4::from_vec3(v2)],
-            normal: Vec4::from_vec3(Vec3::cross(v1 - v0, v2 - v0).normalize()),
-            col: Vec4::from_vec3(c),
-            mesh_id: i,
-            a: i,
-            b: i,
-            c: i,
+            normal: normal,
         }
     }
 }
@@ -38,11 +31,7 @@ enum ObjParserState {
     Faces(usize, usize),
 }
 
-pub fn parse_obj(tris: &mut Vec<Tri>, name: &str) {
-    static ID_COUNTER: AtomicU32 = AtomicU32::new(u32::MAX);
-
-    ID_COUNTER.fetch_add(1, Ordering::Relaxed);
-
+pub fn parse_obj_as_tris<T: FromObjTri>(tris: &mut Vec<T>, name: &str) {
     let mut file = fs::File::open(name).unwrap();
     let mut raw = String::new();
     file.read_to_string(&mut raw).unwrap();
@@ -109,12 +98,9 @@ pub fn parse_obj(tris: &mut Vec<Tri>, name: &str) {
     }
 
     for i in &fs {
-        tris.push(Tri::new(
-            ID_COUNTER.load(Ordering::Relaxed),
-            Vec3::new(i[0][0], i[0][1], i[0][2]),
-            Vec3::new(i[1][0], i[1][1], i[1][2]),
-            Vec3::new(i[2][0], i[2][1], i[2][2]),
-            Vec3::new(1.0, 1.0, 1.0),
-        ));
+        let tri = Tri::new(Vec3::new(i[0][0], i[0][1], i[0][2]), Vec3::new(i[1][0], i[1][1], i[1][2]), Vec3::new(i[2][0], i[2][1], i[2][2]));
+        let formatted_tri = T::from_obj_tri(tri.clone());
+
+        tris.push(formatted_tri);
     }
 }

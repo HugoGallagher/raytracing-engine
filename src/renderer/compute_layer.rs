@@ -2,7 +2,7 @@ use std::{ffi::c_void, collections::HashMap};
 
 use ash::vk;
 
-use crate::renderer::core::Core;
+use crate::renderer::{core::Core, semaphore::Semaphore};
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::{DescriptorsBuilder, DescriptorBindingReference};
 use crate::renderer::push_constant::{PushConstant, PushConstantBuilder};
@@ -15,26 +15,38 @@ pub struct ComputeLayer {
     pub count: usize,
 
     pub commands: Commands,
+
     pub passes: Vec<ComputePass>,
+    pub pass_refs: HashMap<String, usize>,
+
+    pub semaphore: Semaphore,
 }
 
 impl ComputeLayer {
     pub unsafe fn new(c: &Core, d: &Device, count: usize) -> ComputeLayer {
         let commands = Commands::new(d, d.queue_compute.1, count, false);
+        let semaphore = Semaphore::new(d);
 
         ComputeLayer {
             count,
             commands,
-            passes: Vec::<ComputePass>::new(),
+            passes: Vec::new(),
+            pass_refs: HashMap::new(),
+            semaphore,
         }
     }
 
-    pub unsafe fn add_pass(&mut self, pass: ComputePass) {
+    pub unsafe fn add_pass(&mut self, name: &str, pass: ComputePass) {
         self.passes.push(pass);
+        self.pass_refs.insert(name.to_string(), self.passes.len() - 1);
     }
 
-    pub unsafe fn fill_push_constant<T>(&mut self, pass_index: usize, data: &T) {
-        self.passes[pass_index].push_constant.as_mut().expect("Error: Compute pass has no push constant to fill").set_data(data);
+    pub fn get_pass(&self, name: &str) -> &ComputePass {
+        &self.passes[*self.pass_refs.get(name).unwrap()]
+    }
+
+    pub unsafe fn fill_push_constant<T>(&mut self, name: &str, data: &T) {
+        self.passes[*self.pass_refs.get(name).unwrap()].push_constant.as_mut().expect("Error: Compute pass has no push constant to fill").set_data(data);
     }
 
     pub unsafe fn record_one(&self, d: &Device, i: usize) {

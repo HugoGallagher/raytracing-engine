@@ -17,6 +17,14 @@ pub trait VertexAttributes {
     fn get_attribute_data() -> Vec<VertexAttribute>;
 }
 
+pub struct NoVertices {}
+
+impl VertexAttributes for NoVertices {
+    fn get_attribute_data() -> Vec<VertexAttribute> {
+        vec![]
+    }
+}
+
 pub struct VertexBuffer {
     pub binding_desc: vk::VertexInputBindingDescription,
     pub attrib_descs: Vec<vk::VertexInputAttributeDescription>,

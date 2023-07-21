@@ -27,10 +27,6 @@ struct tri {
     vec3 verts[3];
     vec3 normal;
     vec3 col;
-    uint mesh_id;
-    uint a;
-    uint b;
-    uint c;
 };
 
 struct collision_data {
