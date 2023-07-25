@@ -1,7 +1,7 @@
 use std::{sync::{mpsc, Mutex, Arc}, ffi::c_void};
 use std::thread;
 
-use engine::math::vec::Vec2;
+use engine::{math::vec::Vec2, graph::Graph};
 use engine::{window, game};
 use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle, RawWindowHandle, RawDisplayHandle};
 use winit::event::{Event, VirtualKeyCode, WindowEvent, DeviceEvent, ElementState};
@@ -24,7 +24,45 @@ pub struct RawWindowDataWrapper {
 unsafe impl Send for RawWindowDataWrapper {}
 unsafe impl Sync for RawWindowDataWrapper {}
 
+#[derive(Copy, Clone)]
+struct Data {
+    id: u32,
+}
+
+#[derive(Copy, Clone)]
+struct Info {
+
+}
+
 fn main() {
+    // let mut graph = Graph::<Data, Info>::new();
+
+    // graph.add_node("0", Data { id: 0 });
+    // graph.add_node("1", Data { id: 1 });
+    // graph.add_node("2", Data { id: 2 });
+    // graph.add_node("3", Data { id: 3 });
+    // graph.add_node("4", Data { id: 4 });
+    // graph.add_node("5", Data { id: 5 });
+    // graph.add_node("6", Data { id: 6 });
+    // graph.add_node("7", Data { id: 7 });
+    // graph.add_node("8", Data { id: 8 });
+
+    // graph.add_edge("1", "8", Info {});
+    // graph.add_edge("1", "4", Info {});
+    // graph.add_edge("4", "6", Info {});
+    // graph.add_edge("8", "5", Info {});
+    // graph.add_edge("5", "4", Info {});
+    // graph.add_edge("4", "7", Info {});
+    // graph.add_edge("7", "2", Info {});
+    // graph.add_edge("6", "3", Info {});
+
+    // let nodes = graph.breadth_first_forwards("1");
+    // for node in nodes {
+    //     println!("{}", node.name);
+    // }
+
+    // return;
+
     unsafe {
         let event_loop = EventLoop::new();
         let mut window = window::Window::new(&event_loop);

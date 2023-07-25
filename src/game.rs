@@ -202,12 +202,14 @@ impl Game {
             .push_constant_builder(mesh_push_constant_builder)
             .with_depth_buffer();
 
+        game.renderer.add_compute_layer("raytracer_layer");
+        game.renderer.add_compute_pass("raytracer_layer", "raytracer", raytracer_pass_builder);
+
         game.renderer.add_graphics_layer("final_layer", true);
         game.renderer.add_graphics_pass("final_layer", "draw_image_to_screen", quad_pass_builder);
         //game.renderer.add_graphics_pass("final_layer", "mesh_draw", mesh_pass_builder);
 
-        game.renderer.add_compute_layer("raytracer_layer");
-        game.renderer.add_compute_pass("raytracer_layer", "raytracer", raytracer_pass_builder);
+        game.renderer.add_layer_dependency("raytracer_layer", "final_layer", vk::PipelineStageFlags::FRAGMENT_SHADER);
 
         game
     }
