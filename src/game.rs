@@ -4,7 +4,7 @@ use std::thread;
 use crate::{math::{vec::{Vec2, Vec3, Vec4}, mat::Mat4, quat::Quat}, renderer::{vertex_buffer::{VertexAttribute, VertexAttributes, NoVertices}, mesh::{FromObjTri, self}, graphics_pass::{GraphicsPassDrawInfo, GraphicsPassBuilder}, push_constant::PushConstantBuilder, buffer::BufferBuilder, image::{ImageBuilder, self}, descriptors::{image_descriptor::ImageDescriptorBuilder, sampler_descriptor::SamplerDescriptorBuilder, storage_descriptor::StorageDescriptorBuilder, DescriptorsBuilder}, compute_pass::{ComputePassDispatchInfo, ComputePassBuilder}}};
 
 use crate::renderer::Renderer;
-use crate::frametime::Frametime;
+use crate::util::frametime::Frametime;
 
 use std::collections::HashMap;
 use ash::vk;
@@ -207,7 +207,7 @@ impl Game {
 
         game.renderer.add_graphics_layer("final_layer", true);
         game.renderer.add_graphics_pass("final_layer", "draw_image_to_screen", quad_pass_builder);
-        //game.renderer.add_graphics_pass("final_layer", "mesh_draw", mesh_pass_builder);
+        game.renderer.add_graphics_pass("final_layer", "mesh_draw", mesh_pass_builder);
 
         game.renderer.add_layer_dependency("raytracer_layer", "final_layer", vk::PipelineStageFlags::FRAGMENT_SHADER);
 
@@ -272,7 +272,7 @@ impl Game {
         self.renderer.pre_draw();
 
         self.renderer.fill_push_constant("raytracer_layer", "raytracer", &self.raytracer_push_constant);
-        //self.renderer.fill_push_constant("final_layer", "mesh_draw", &self.mesh_push_constant);
+        self.renderer.fill_push_constant("final_layer", "mesh_draw", &self.mesh_push_constant);
         self.renderer.fill_buffer("tris", &self.tris);
 
         self.renderer.draw();
