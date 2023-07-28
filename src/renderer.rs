@@ -20,13 +20,14 @@ pub mod semaphore;
 pub mod frame;
 pub mod mesh;
 pub mod push_constant;
+pub mod renderer_data;
 
 use std::{mem, ffi::c_void, collections::HashMap};
 
 use ash::vk;
 use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
 
-use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{mesh::FromObjTri, vertex_buffer::VertexAttributes, compute_layer::ComputeLayer}, util::graph::{Graph, self}};
+use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{mesh::FromObjTri, vertex_buffer::VertexAttributes, compute_layer::ComputeLayer, buffer::Buffer, image::Image}, util::graph::{Graph, self}};
 
 pub enum LayerRef {
     Compute(usize),
@@ -52,9 +53,8 @@ pub struct Renderer {
     pub core: core::Core,
     pub device: device::Device,
     pub swapchain: swapchain::Swapchain,
- 
-    pub buffers: HashMap<String, Vec<buffer::Buffer>>,
-    pub images: HashMap<String, Vec<image::Image>>,
+
+    pub data: renderer_data::RendererData,
  
     pub compute_layers: Vec<compute_layer::ComputeLayer>,
     pub graphics_layers: Vec<graphics_layer::GraphicsLayer>,
@@ -83,8 +83,11 @@ impl Renderer {
         let compute_layers = Vec::<compute_layer::ComputeLayer>::new();
         let graphics_layers = Vec::<graphics_layer::GraphicsLayer>::new();
 
-        let mut buffers = HashMap::<String, Vec<buffer::Buffer>>::new();
-        let mut images = HashMap::<String, Vec<image::Image>>::new();
+        let data = renderer_data::RendererData {
+            count: FRAMES_IN_FLIGHT as usize,
+            buffers: HashMap::new(),
+            images: HashMap::new(),
+        };
 
         let mut frames = Vec::<frame::Frame>::new();
         for _ in 0..FRAMES_IN_FLIGHT {
@@ -96,8 +99,7 @@ impl Renderer {
             device,
             swapchain,
 
-            buffers,
-            images,
+            data,
 
             layers,
 
@@ -221,12 +223,20 @@ impl Renderer {
         self.swapchain.swapchain_init.queue_present(self.device.queue_present.0, &present_i).unwrap();
     }
 
-    pub unsafe fn add_buffer(&mut self, name: &str, builder: buffer::BufferBuilder) {
-        self.buffers.insert(name.to_string(), builder.build_many(&self.core, &self.device, self.frames_in_flight));
+    pub unsafe fn add_buffers(&mut self, name: &str, builder: buffer::BufferBuilder) {
+        self.data.add_buffers(&self.core, &self.device, name, builder);
     }
 
-    pub unsafe fn add_image(&mut self, name: &str, builder: image::ImageBuilder) {
-        self.images.insert(name.to_string(), builder.build_many(&self.core, &self.device, self.frames_in_flight));
+    pub unsafe fn add_images(&mut self, name: &str, builder: image::ImageBuilder) {
+        self.data.add_images(&self.core, &self.device, name, builder);
+    }
+
+    pub fn get_buffers(&self, name: &str) -> &Vec<Buffer> {
+        self.data.get_buffers(name)
+    }
+
+    pub fn get_images(&self, name: &str) -> &Vec<Image> {
+        self.data.get_images(name)
     }
 
     pub unsafe fn add_compute_layer(&mut self, name: &str) {
@@ -298,14 +308,6 @@ impl Renderer {
     }
 
     pub unsafe fn fill_buffer<T>(&mut self, name: &str, data: &Vec<T>) {
-        self.buffers.get(name).unwrap()[self.current_frame].fill(&self.device, &data);
-    }
-
-    pub unsafe fn fill_push_constant<T>(&mut self, layer_name: &str, pass_name: &str, data: &T) {
-        let layer_ref = &self.layers.get_node(layer_name).data;
-        match layer_ref {
-            LayerRef::Compute(i) => self.get_compute_layer_mut(layer_name).fill_push_constant(pass_name, data),
-            LayerRef::Graphics(i) => self.get_graphics_layer_mut(layer_name).fill_push_constant(pass_name, data),
-        }
+        self.data.get_buffers(name)[self.current_frame].fill(&self.device, &data);
     }
 }

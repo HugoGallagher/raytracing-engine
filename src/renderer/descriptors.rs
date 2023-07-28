@@ -5,7 +5,7 @@ pub mod sampler_descriptor;
 
 use ash::vk;
 
-use crate::renderer::core::Core;
+use crate::renderer::{core::Core, buffer::Buffer, image::Image};
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::uniform_descriptor::UniformDescriptorBuilder;
 use crate::renderer::descriptors::storage_descriptor::StorageDescriptorBuilder;
@@ -13,11 +13,19 @@ use crate::renderer::descriptors::image_descriptor::ImageDescriptorBuilder;
 use crate::renderer::descriptors::sampler_descriptor::SamplerDescriptorBuilder;
 
 #[derive(Copy, Clone)]
-pub enum DescriptorBindingReference {
+pub enum BindingReference {
     Uniform(usize),
     Storage(usize),
     Image(usize),
     Sampler(usize),
+}
+
+#[derive(Clone)]
+pub enum CreationReference {
+    Uniform(String),
+    Storage(String),
+    Image(String),
+    Sampler(String),
 }
 
 pub struct DescriptorsBuilder {
@@ -29,7 +37,7 @@ pub struct DescriptorsBuilder {
     pub sampler_builders: Vec<(u32, SamplerDescriptorBuilder)>,
 
     next_binding: u32,
-    pub binding_references: Vec<DescriptorBindingReference>,
+    pub binding_references: Vec<BindingReference>,
 }
 
 impl  DescriptorsBuilder {
@@ -42,7 +50,7 @@ impl  DescriptorsBuilder {
             image_builders: Vec::<(u32, ImageDescriptorBuilder)>::new(),
             sampler_builders: Vec::<(u32, SamplerDescriptorBuilder)>::new(),
             next_binding: 0,
-            binding_references: Vec::<DescriptorBindingReference>::new(),
+            binding_references: Vec::<BindingReference>::new(),
         }
     }
 
@@ -58,7 +66,7 @@ impl  DescriptorsBuilder {
     }
 
     pub fn add_uniform_builder(mut self, builder: UniformDescriptorBuilder) -> DescriptorsBuilder {
-        self.binding_references.push(DescriptorBindingReference::Uniform(self.uniform_builders.len()));
+        self.binding_references.push(BindingReference::Uniform(self.uniform_builders.len()));
         self.uniform_builders.push((self.next_binding, builder));
 
         self.next_binding += 1;
@@ -67,7 +75,7 @@ impl  DescriptorsBuilder {
     }
 
     pub fn add_storage_builder(mut self, builder: StorageDescriptorBuilder) -> DescriptorsBuilder {
-        self.binding_references.push(DescriptorBindingReference::Storage(self.storage_builders.len()));
+        self.binding_references.push(BindingReference::Storage(self.storage_builders.len()));
         self.storage_builders.push((self.next_binding, builder));
 
         self.next_binding += 1;
@@ -76,7 +84,7 @@ impl  DescriptorsBuilder {
     }
 
     pub fn add_image_builder(mut self, builder: ImageDescriptorBuilder) -> DescriptorsBuilder {
-        self.binding_references.push(DescriptorBindingReference::Image(self.image_builders.len()));
+        self.binding_references.push(BindingReference::Image(self.image_builders.len()));
         self.image_builders.push((self.next_binding, builder));
 
         self.next_binding += 1;
@@ -85,12 +93,28 @@ impl  DescriptorsBuilder {
     }
 
     pub fn add_sampler_builder(mut self, builder: SamplerDescriptorBuilder) -> DescriptorsBuilder {
-        self.binding_references.push(DescriptorBindingReference::Sampler(self.sampler_builders.len()));
+        self.binding_references.push(BindingReference::Sampler(self.sampler_builders.len()));
         self.sampler_builders.push((self.next_binding, builder));
 
         self.next_binding += 1;
 
         self
+    }
+
+    pub fn add_uniform_simple(self, buffers: &Vec<Buffer>) -> DescriptorsBuilder {
+        self.add_uniform_builder(UniformDescriptorBuilder::new().buffers(buffers))
+    }
+
+    pub fn add_storage_simple(self, buffers: &Vec<Buffer>) -> DescriptorsBuilder {
+        self.add_storage_builder(StorageDescriptorBuilder::new().buffers(buffers))
+    }
+
+    pub fn add_image_simple(self, images: &Vec<Image>) -> DescriptorsBuilder {
+        self.add_image_builder(ImageDescriptorBuilder::new().images(images))
+    }
+
+    pub fn add_sampler_simple(self, images: &Vec<Image>) -> DescriptorsBuilder {
+        self.add_sampler_builder(SamplerDescriptorBuilder::new().images(images))
     }
 
     pub unsafe fn build(self, c: &Core, d: &Device) -> Descriptors {
@@ -108,7 +132,7 @@ pub struct Descriptors {
     pub images: Vec<image_descriptor::ImageDescriptor>,
     pub samplers: Vec<sampler_descriptor::SamplerDescriptor>,
 
-    pub binding_references: Vec<DescriptorBindingReference>,
+    pub binding_references: Vec<BindingReference>,
 }
 
 impl Descriptors {
@@ -259,9 +283,5 @@ impl Descriptors {
 
     pub unsafe fn bind(&self, d: &Device, b: &vk::CommandBuffer, bp: vk::PipelineBindPoint, pl: &vk::PipelineLayout, i: usize) {
         d.device.cmd_bind_descriptor_sets(*b, bp, *pl, 0, &[self.sets[i]], &[]);
-    }
-
-    pub fn fill(&self, d: &Device, binding: u32) {
-
     }
 }

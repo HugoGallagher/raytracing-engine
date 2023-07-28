@@ -45,8 +45,12 @@ impl GraphicsLayer {
         &self.passes[*self.pass_refs.get(name).unwrap()]
     }
 
-    pub unsafe fn fill_push_constant<T>(&mut self, name: &str, data: &T) {
-        self.passes[*self.pass_refs.get(name).unwrap()].push_constant.as_mut().expect("Error: Graphics pass has no push constant to fill").set_data(data);
+    pub unsafe fn fill_vertex_push_constant<T>(&mut self, name: &str, data: &T) {
+        self.passes[*self.pass_refs.get(name).unwrap()].vertex_push_constant.as_mut().expect("Error: Graphics pass has no vertex push constant to fill").set_data(data);
+    }
+
+    pub unsafe fn fill_fragment_push_constant<T>(&mut self, name: &str, data: &T) {
+        self.passes[*self.pass_refs.get(name).unwrap()].fragment_push_constant.as_mut().expect("Error: Graphics pass has no fragment push constant to fill").set_data(data);
     }
 
     pub unsafe fn record_one(&self, d: &Device, i: usize, present_index: usize) {
@@ -66,12 +70,19 @@ impl GraphicsLayer {
                     .render_area(rect)
                     .clear_values(&clear_values);
 
-                if pass.push_constant.is_some() {
-                    d.device.cmd_push_constants(b, pass.pipeline.pipeline_layout, pass.push_constant.as_ref().unwrap().stage, 0, &pass.push_constant.as_ref().unwrap().data);
+                if let Some(push_constant) = &pass.vertex_push_constant {
+                    d.device.cmd_push_constants(b, pass.pipeline.pipeline_layout, push_constant.stage, 0, &push_constant.data);
                 }
 
-                if pass.descriptors.is_some() {
-                    let descriptors = pass.descriptors.as_ref().unwrap();
+                if let Some(push_constant) = &pass.fragment_push_constant {
+                    d.device.cmd_push_constants(b, pass.pipeline.pipeline_layout, push_constant.stage, 0, &push_constant.data);
+                }
+
+                if let Some(descriptors) = &pass.vertex_descriptors {
+                    descriptors.bind(d, &b, vk::PipelineBindPoint::GRAPHICS, &pass.pipeline.pipeline_layout, i);
+                }
+
+                if let Some(descriptors) = &pass.fragment_descriptors {
                     descriptors.bind(d, &b, vk::PipelineBindPoint::GRAPHICS, &pass.pipeline.pipeline_layout, i);
                 }
                 

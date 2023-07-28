@@ -1,6 +1,6 @@
 use ash::vk;
 
-use crate::renderer::core::Core;
+use crate::renderer::{core::Core, buffer::Buffer, image::Image, descriptors::{self, CreationReference}, renderer_data::RendererData};
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::{Descriptors, DescriptorsBuilder};
 use crate::renderer::compute_pipeline::ComputePipeline;
@@ -53,15 +53,35 @@ impl <'a> ComputePassBuilder<'a> {
 
         self
     }
-    pub fn push_constant_builder(mut self, push_constant_builder: PushConstantBuilder) -> ComputePassBuilder<'a> {
-        self.push_constant_builder = Some(push_constant_builder);
+
+    pub fn push_constant<T>(mut self) -> ComputePassBuilder<'a> {
+        self.push_constant_builder = Some(PushConstantBuilder::new().stage(vk::ShaderStageFlags::COMPUTE).size(std::mem::size_of::<T>()));
 
         self
     }
 
     pub fn descriptors_builder(mut self, descriptors_builder: DescriptorsBuilder) -> ComputePassBuilder<'a> {
-        self.descriptors_builder = Some(descriptors_builder);
+        self.descriptors_builder = Some(descriptors_builder.stage(vk::ShaderStageFlags::COMPUTE));
 
+        self
+    }
+
+    pub fn descriptors(mut self, create_refs: Vec<CreationReference>, data: &RendererData) -> ComputePassBuilder<'a> {
+        let mut descriptors_builder = DescriptorsBuilder::new()
+            .stage(vk::ShaderStageFlags::COMPUTE)
+            .count(data.count);
+
+        for create_ref in create_refs {
+            match create_ref {
+                CreationReference::Uniform(name) => { descriptors_builder = descriptors_builder.add_uniform_simple(data.get_buffers(&name)); },
+                CreationReference::Storage(name) => { descriptors_builder = descriptors_builder.add_storage_simple(data.get_buffers(&name)); },
+                CreationReference::Image(name) => { descriptors_builder = descriptors_builder.add_image_simple(data.get_images(&name)); },
+                CreationReference::Sampler(name) => { descriptors_builder = descriptors_builder.add_sampler_simple(data.get_images(&name)); },
+            }
+        }
+
+        self.descriptors_builder = Some(descriptors_builder);
+        
         self
     }
 

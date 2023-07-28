@@ -23,7 +23,7 @@ pub struct GraphicsPipeline {
 }
 
 impl GraphicsPipeline {
-    pub unsafe fn new(c: &Core, d: &Device, target_rect: vk::Rect2D, vertex_buffer: Option<&VertexBuffer>, descriptor_set_layout: Option<vk::DescriptorSetLayout>, push_constant: Option<&PushConstant>, vs: &str, fs: &str, with_depth_buffer: bool) -> GraphicsPipeline {
+    pub unsafe fn new(c: &Core, d: &Device, target_rect: vk::Rect2D, vertex_buffer: Option<&VertexBuffer>, vertex_descriptor_set_layout: Option<vk::DescriptorSetLayout>, fragment_descriptor_set_layout: Option<vk::DescriptorSetLayout>, vertex_push_constant: Option<&PushConstant>, fragment_push_constant: Option<&PushConstant>, vs: &str, fs: &str, with_depth_buffer: bool) -> GraphicsPipeline {
         let vert_shader = Shader::new(d, vs, vk::ShaderStageFlags::VERTEX);
         let frag_shader = Shader::new(d, fs, vk::ShaderStageFlags::FRAGMENT);
 
@@ -100,23 +100,33 @@ impl GraphicsPipeline {
             .attachments(&color_blend_attachment_states)
             .build();
 
-        let push_constant_ranges = match push_constant {
-            Some(pc) => {
-                vec![vk::PushConstantRange::builder()
-                    .size(pc.size as u32)
-                    .offset(0)
-                    .stage_flags(pc.stage)
-                    .build()]
-            },
-            None => vec![]
-        };
+        let mut push_constant_ranges = Vec::<vk::PushConstantRange>::new();
 
-        let descriptor_set_layouts = match descriptor_set_layout {
-            Some(layout) => {
-                vec![layout]
-            },
-            None => vec![]
-        };
+        if let Some(push_constant) = vertex_push_constant {
+            push_constant_ranges.push(vk::PushConstantRange::builder()
+            .size(push_constant.size as u32)
+            .offset(0)
+            .stage_flags(push_constant.stage)
+            .build());
+        }
+
+        if let Some(push_constant) = fragment_push_constant {
+            push_constant_ranges.push(vk::PushConstantRange::builder()
+            .size(push_constant.size as u32)
+            .offset(0)
+            .stage_flags(push_constant.stage)
+            .build());
+        }
+
+        let mut descriptor_set_layouts = Vec::<vk::DescriptorSetLayout>::new();
+
+        if let Some(descriptor_set_layout) = vertex_descriptor_set_layout {
+            descriptor_set_layouts.push(descriptor_set_layout);
+        }
+
+        if let Some(descriptor_set_layout) = fragment_descriptor_set_layout {
+            descriptor_set_layouts.push(descriptor_set_layout);
+        }
 
         let (vertex_attribute_descs, vertex_binding_descs) = match vertex_buffer {
             Some(buffer) => {

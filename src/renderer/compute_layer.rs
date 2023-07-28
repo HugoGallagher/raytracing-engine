@@ -2,19 +2,27 @@ use std::{ffi::c_void, collections::HashMap};
 
 use ash::vk;
 
-use crate::renderer::{core::Core, semaphore::Semaphore};
+use crate::{renderer::{core::Core, semaphore::Semaphore, buffer::Buffer, image::Image}, util::graph::Graph};
 use crate::renderer::device::Device;
-use crate::renderer::descriptors::{DescriptorsBuilder, DescriptorBindingReference};
-use crate::renderer::push_constant::{PushConstant, PushConstantBuilder};
 use crate::renderer::commands::Commands;
 use crate::renderer::compute_pass::{ComputePass, ComputePassDispatchInfo};
-use crate::renderer::buffer::{Buffer, BufferBuilder};
-use crate::renderer::image::{Image, ImageBuilder};
+
+#[derive(Copy, Clone)]
+struct NodeData {
+
+}
+
+#[derive(Copy, Clone)]
+struct EdgeInfo {
+
+}
 
 pub struct ComputeLayer {
     pub count: usize,
 
     pub commands: Commands,
+
+    graph: Graph<NodeData, EdgeInfo>,
 
     pub passes: Vec<ComputePass>,
     pub pass_refs: HashMap<String, usize>,
@@ -30,6 +38,7 @@ impl ComputeLayer {
         ComputeLayer {
             count,
             commands,
+            graph: Graph::new(),
             passes: Vec::new(),
             pass_refs: HashMap::new(),
             semaphore,

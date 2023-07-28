@@ -1,7 +1,6 @@
-use std::{sync::mpsc, f32::consts::PI};
-use std::thread;
+use std::f32::consts::PI;
 
-use crate::{math::{vec::{Vec2, Vec3, Vec4}, mat::Mat4, quat::Quat}, renderer::{vertex_buffer::{VertexAttribute, VertexAttributes, NoVertices}, mesh::{FromObjTri, self}, graphics_pass::{GraphicsPassDrawInfo, GraphicsPassBuilder}, push_constant::PushConstantBuilder, buffer::BufferBuilder, image::{ImageBuilder, self}, descriptors::{image_descriptor::ImageDescriptorBuilder, sampler_descriptor::SamplerDescriptorBuilder, storage_descriptor::StorageDescriptorBuilder, DescriptorsBuilder}, compute_pass::{ComputePassDispatchInfo, ComputePassBuilder}}};
+use crate::{math::{vec::{Vec2, Vec3, Vec4}, mat::Mat4}, renderer::{vertex_buffer::{VertexAttribute, VertexAttributes, NoVertices}, mesh::{FromObjTri, self}, graphics_pass::{GraphicsPassDrawInfo, GraphicsPassBuilder}, buffer::BufferBuilder, image::ImageBuilder, descriptors::CreationReference, compute_pass::{ComputePassDispatchInfo, ComputePassBuilder}}};
 
 use crate::renderer::Renderer;
 use crate::util::frametime::Frametime;
@@ -9,7 +8,7 @@ use crate::util::frametime::Frametime;
 use std::collections::HashMap;
 use ash::vk;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use winit::{event::{VirtualKeyCode, ElementState}, window::Window};
+use winit::event::{VirtualKeyCode, ElementState};
 
 #[repr(C)]
 pub struct RaytracerPushConstant {
@@ -94,6 +93,11 @@ impl Game {
             downscale: DOWNSCALE,
             tri_count: tris.len() as u32,
         };
+
+        let mesh_push_constant = MeshPushConstant {
+            view_proj: Mat4::identity(),
+            model: Mat4::identity(),
+        };
         
         let mut game = Game {
             renderer: Renderer::new(window, display),
@@ -111,7 +115,7 @@ impl Game {
             rot: Vec3::new(0.0, 0.0, 0.0),
 
             raytracer_push_constant,
-            mesh_push_constant: MeshPushConstant { view_proj: Mat4::identity(), model: Mat4::identity() },
+            mesh_push_constant,
 
             tris,
         };
@@ -128,57 +132,25 @@ impl Game {
             .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED)
             .format(vk::Format::R8G8B8A8_UNORM);
 
-        game.renderer.add_buffer("tris", buffer_builder);
-        game.renderer.add_image("raytraced_image", image_builder);
+        game.renderer.add_buffers("tris", buffer_builder);
+        game.renderer.add_images("raytraced_image", image_builder);
 
-        let image_descriptor_builder = ImageDescriptorBuilder::new()
-            .images(&game.renderer.images.get("raytraced_image").unwrap());
-            
-        let sampler_descriptor_builder = SamplerDescriptorBuilder::new()
-            .images(&game.renderer.images.get("raytraced_image").unwrap());
-
-        let storage_descriptor_builder = StorageDescriptorBuilder::new()
-            .buffers(&game.renderer.buffers.get("tris").unwrap());
-
-        let raytracer_descriptors_builder = DescriptorsBuilder::new()
-            .count(game.renderer.frames_in_flight)
-            .stage(vk::ShaderStageFlags::COMPUTE)
-            .add_storage_builder(storage_descriptor_builder)
-            .add_image_builder(image_descriptor_builder);
-
-        let raytracer_push_constant_builder = PushConstantBuilder::new()
-            .size(std::mem::size_of::<RaytracerPushConstant>())
-            .stage(vk::ShaderStageFlags::COMPUTE);
-
-        let raytracer_pass_dispatch_info = ComputePassDispatchInfo {
-            x: (1280 / 16) / DOWNSCALE + 1,
-            y: (720 / 16) / DOWNSCALE + 1,
-            z: 1
-        };
+        let raytracer_pass_creation_refs = vec![CreationReference::Storage("tris".to_string()), CreationReference::Image("raytraced_image".to_string())];
 
         let raytracer_pass_builder = ComputePassBuilder::new()
             .compute_shader("raytracer.comp")
-            .descriptors_builder(raytracer_descriptors_builder)
-            .push_constant_builder(raytracer_push_constant_builder)
-            .dispatch_info(raytracer_pass_dispatch_info);
+            .descriptors(raytracer_pass_creation_refs, &game.renderer.data)
+            .push_constant::<RaytracerPushConstant>()
+            .dispatch_info(ComputePassDispatchInfo::new((1280 / 16) / DOWNSCALE + 1, (720 / 16) / DOWNSCALE + 1, 1));
 
-        let quad_pass_descriptors_builder = DescriptorsBuilder::new()
-            .count(game.renderer.frames_in_flight)
-            .stage(vk::ShaderStageFlags::FRAGMENT)
-            .add_sampler_builder(sampler_descriptor_builder);
-
-        let quad_pass_draw_info = GraphicsPassDrawInfo::simple_vertex(6);
+        let quad_pass_creation_refs = vec![CreationReference::Sampler("raytraced_image".to_string())];
 
         let quad_pass_builder = GraphicsPassBuilder::<NoVertices>::new()
             .vertex_shader("draw_to_screen.vert")
             .fragment_shader("draw_to_screen.frag")
-            .draw_info(quad_pass_draw_info)
+            .draw_info(GraphicsPassDrawInfo::simple_vertex(6))
             .targets(&game.renderer.swapchain.images)
-            .descriptors_builder(quad_pass_descriptors_builder);
-
-        let mesh_push_constant_builder = PushConstantBuilder::new()
-            .size(std::mem::size_of::<MeshPushConstant>())
-            .stage(vk::ShaderStageFlags::VERTEX);
+            .fragment_descriptors(quad_pass_creation_refs, &game.renderer.data);
 
         let mut mesh_tris = Vec::<RaytracerTri>::with_capacity(2048);
         mesh::parse_obj_as_tris(&mut mesh_tris, "res/meshes/torus.obj");
@@ -189,17 +161,15 @@ impl Game {
             mesh_verts.push(MeshVertex { pos: tri.verts[1].to_vec3(), col: tri.normal.to_vec3() });
             mesh_verts.push(MeshVertex { pos: tri.verts[2].to_vec3(), col: tri.normal.to_vec3() });
         }
-        
-        let mesh_pass_draw_info = GraphicsPassDrawInfo::simple_vertex(mesh_verts.len());
 
         let mesh_pass_builder = GraphicsPassBuilder::new()
             .vertex_shader("mesh.vert")
             .fragment_shader("mesh.frag")
-            .draw_info(mesh_pass_draw_info)
+            .draw_info(GraphicsPassDrawInfo::simple_vertex(mesh_verts.len()))
             .targets(&game.renderer.swapchain.images)
             .extent(vk::Extent2D { width: 320, height: 180 })
             .verts(&mesh_verts)
-            .push_constant_builder(mesh_push_constant_builder)
+            .vertex_push_constant::<MeshPushConstant>()
             .with_depth_buffer();
 
         game.renderer.add_compute_layer("raytracer_layer");
@@ -271,8 +241,8 @@ impl Game {
     pub unsafe fn draw(&mut self) {
         self.renderer.pre_draw();
 
-        self.renderer.fill_push_constant("raytracer_layer", "raytracer", &self.raytracer_push_constant);
-        self.renderer.fill_push_constant("final_layer", "mesh_draw", &self.mesh_push_constant);
+        self.renderer.get_compute_layer_mut("raytracer_layer").fill_push_constant("raytracer", &self.raytracer_push_constant);
+        self.renderer.get_graphics_layer_mut("final_layer").fill_vertex_push_constant("mesh_draw", &self.mesh_push_constant);
         self.renderer.fill_buffer("tris", &self.tris);
 
         self.renderer.draw();
