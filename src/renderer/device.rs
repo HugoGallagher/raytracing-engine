@@ -1,7 +1,7 @@
 use ash::vk;
 use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
 
-use crate::renderer::core::Core;
+use crate::renderer::{core::Core, layer::LayerExecution};
 
 pub struct Device {
     pub device: ash::Device,
@@ -17,8 +17,8 @@ pub struct Device {
     pub physical_device: vk::PhysicalDevice,
 
     pub queue_present: (vk::Queue, u32),
-    pub queue_graphics: (vk::Queue, u32),
-    pub queue_compute: (vk::Queue, u32),
+    pub queue_main: (vk::Queue, u32),
+    pub queue_async: (vk::Queue, u32),
 }
 
 impl Device {
@@ -28,21 +28,21 @@ impl Device {
 
         let available_physical_devices = c.instance.enumerate_physical_devices().unwrap();
 
-        let (physical_device, queue_index_present, queue_index_graphics, queue_index_compute) = available_physical_devices.iter().filter_map(|&pd| {
+        let (physical_device, queue_index_present, queue_index_main, queue_index_async) = available_physical_devices.iter().filter_map(|&pd| {
             let queue_family_properties = c.instance.get_physical_device_queue_family_properties(pd);
 
             let queue_index_properties_present = queue_family_properties.iter().enumerate().filter(|(i, ref q)| {
                 surface_init.get_physical_device_surface_support(pd, *i as u32, surface).unwrap()
             }).next();
-            let queue_index_properties_graphics = queue_family_properties.iter().enumerate().filter(|(i, ref q)| {
-                q.queue_flags.contains(vk::QueueFlags::GRAPHICS)
+            let queue_index_properties_main = queue_family_properties.iter().enumerate().filter(|(i, ref q)| {
+                q.queue_flags.contains(vk::QueueFlags::GRAPHICS | vk::QueueFlags::COMPUTE)
             }).next();
-            let queue_index_properties_compute = queue_family_properties.iter().enumerate().filter(|(i, ref q)| {
+            let queue_index_properties_async = queue_family_properties.iter().enumerate().filter(|(i, ref q)| {
                 q.queue_flags.contains(vk::QueueFlags::COMPUTE)
             }).next();
 
-            if queue_index_properties_present.is_some() && queue_index_properties_graphics.is_some() && queue_index_properties_compute.is_some() {
-                Some((pd, queue_index_properties_present.unwrap().0 as u32, queue_index_properties_graphics.unwrap().0 as u32, queue_index_properties_compute.unwrap().0 as u32))
+            if queue_index_properties_present.is_some() && queue_index_properties_main.is_some() && queue_index_properties_async.is_some() {
+                Some((pd, queue_index_properties_present.unwrap().0 as u32, queue_index_properties_main.unwrap().0 as u32, queue_index_properties_async.unwrap().0 as u32))
             } else {
                 None
             }
@@ -57,7 +57,7 @@ impl Device {
 
         let priorities = [1.0];
 
-        let queue_indices = vec![queue_index_present, queue_index_graphics, queue_index_compute];
+        let queue_indices = vec![queue_index_present, queue_index_main, queue_index_async];
         let mut unique_indices = Vec::<u32>::new();
         let mut queue_cis = Vec::<vk::DeviceQueueCreateInfo>::new();
 
@@ -84,8 +84,8 @@ impl Device {
         let device = c.instance.create_device(physical_device, &device_ci, None).unwrap();
 
         let queue_present = (device.get_device_queue(queue_index_present, 0), queue_index_present);
-        let queue_graphics = (device.get_device_queue(queue_index_graphics, 0), queue_index_graphics);
-        let queue_compute = (device.get_device_queue(queue_index_compute, 0), queue_index_compute);
+        let queue_main = (device.get_device_queue(queue_index_main, 0), queue_index_main);
+        let queue_async = (device.get_device_queue(queue_index_async, 0), queue_index_async);
 
         let available_surface_formats = surface_init.get_physical_device_surface_formats(physical_device, surface).unwrap();
         let surface_format = available_surface_formats.iter().filter(|format| {
@@ -104,21 +104,28 @@ impl Device {
         };
 
         Device {
-            device: device,
+            device,
 
-            surface_init: surface_init,
-            surface: surface,
+            surface_init,
+            surface,
             surface_format: *surface_format,
-            surface_capabilities: surface_capabilities,
-            surface_extent: surface_extent,
+            surface_capabilities,
+            surface_extent,
 
-            extension_names: extension_names,
+            extension_names,
 
-            physical_device: physical_device,
+            physical_device,
 
-            queue_present: queue_present,
-            queue_graphics: queue_graphics,
-            queue_compute: queue_compute,
+            queue_present,
+            queue_main,
+            queue_async,
+        }
+    }
+
+    pub fn get_queue(&self, exec: LayerExecution) -> (vk::Queue, u32) {
+        match exec {
+            LayerExecution::Main => self.queue_main,
+            LayerExecution::Async => self.queue_async,
         }
     }
 

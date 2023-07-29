@@ -24,10 +24,10 @@ impl Swapchain {
 
         //let image_count = 2;
 
-        let (queue_family_indices, sharing_mode) = if d.queue_present.1 == d.queue_graphics.1 {
+        let (queue_family_indices, sharing_mode) = if d.queue_present.1 == d.queue_main.1 {
             (vec![d.queue_present.1], vk::SharingMode::EXCLUSIVE)
         } else {
-            (vec![d.queue_present.1, d.queue_graphics.1], vk::SharingMode::CONCURRENT)
+            (vec![d.queue_present.1, d.queue_main.1], vk::SharingMode::CONCURRENT)
         };
 
         let present_mode = d.surface_init.get_physical_device_surface_present_modes(d.physical_device, d.surface).unwrap().iter().cloned().find(|&pm| pm == vk::PresentModeKHR::MAILBOX).unwrap_or(vk::PresentModeKHR::FIFO);

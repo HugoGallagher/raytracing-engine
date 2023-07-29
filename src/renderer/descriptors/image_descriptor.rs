@@ -1,6 +1,6 @@
 use ash::vk;
 
-use crate::renderer::{core::Core, image};
+use crate::renderer::{core::Core, image, layer::LayerExecution};
 use crate::renderer::device::Device;
 use crate::renderer::image::{Image, ImageBuilder};
 use crate::renderer::commands::Commands;
@@ -58,7 +58,7 @@ impl ImageDescriptor {
 
         d.device.update_descriptor_sets(&write_sets, &[]);
 
-        let layout_transition_buffer = Commands::new(d, d.queue_compute.1, images.len(), false);
+        let layout_transition_buffer = Commands::new(d, d.get_queue(LayerExecution::Main).1, images.len(), false);
 
         layout_transition_buffer.record_all(d, |i, b| {
             let subresource_range = vk::ImageSubresourceRange::builder()
@@ -83,8 +83,8 @@ impl ImageDescriptor {
             .command_buffers(&layout_transition_buffer.buffers)
             .build()];
 
-        d.device.queue_submit(d.queue_compute.0, &submit_is, vk::Fence::null()).unwrap();
-        d.device.queue_wait_idle(d.queue_compute.0).unwrap();
+        d.device.queue_submit(d.get_queue(LayerExecution::Main).0, &submit_is, vk::Fence::null()).unwrap();
+        d.device.queue_wait_idle(d.get_queue(LayerExecution::Main).0).unwrap();
 
         ImageDescriptor {}
     }

@@ -145,7 +145,7 @@ impl Buffer {
         }
 
         if !host_visible {
-            let transfer_commands = Commands::new(d, d.queue_graphics.1, 1, true);
+            let transfer_commands = Commands::new(d, d.queue_main.1, 1, true);
 
             transfer_commands.record_one(d, 0, |b| {
                 let buffer_copy = vk::BufferCopy::builder()
@@ -159,8 +159,8 @@ impl Buffer {
                 .command_buffers(&[transfer_commands.buffers[0]])
                 .build();
 
-            d.device.queue_submit(d.queue_graphics.0, &[submit_i], vk::Fence::null()).unwrap();
-            d.device.queue_wait_idle(d.queue_graphics.0).unwrap();
+            d.device.queue_submit(d.queue_main.0, &[submit_i], vk::Fence::null()).unwrap();
+            d.device.queue_wait_idle(d.queue_main.0).unwrap();
         }
 
         buffer
