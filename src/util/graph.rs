@@ -6,8 +6,8 @@ pub struct Node<T> {
 }
 
 pub struct Edge<U: Copy> {
-    pub src: String,
-    pub dst: String,
+    pub src: usize,
+    pub dst: usize,
 
     pub info: U,
 }
@@ -43,8 +43,8 @@ impl <T, U: Copy> Graph<T, U> {
 
     pub fn add_edge(&mut self, src: &str, dst: &str, info: U) {
         self.edges.push(Edge { 
-            src: src.to_string(),
-            dst: dst.to_string(),
+            src: *self.node_refs.get(src).unwrap(),
+            dst: *self.node_refs.get(dst).unwrap(),
 
             info,
         });
@@ -58,6 +58,14 @@ impl <T, U: Copy> Graph<T, U> {
 
     pub fn get_node(&self, name: &str) -> &Node<T> {
         &self.nodes[*self.node_refs.get(name).unwrap()]
+    }
+
+    pub fn get_src_node(&self, edge: &Edge<U>) -> &Node<T> {
+        &self.nodes[edge.src]
+    }
+
+    pub fn get_dst_node(&self, edge: &Edge<U>) -> &Node<T> {
+        &self.nodes[edge.dst]
     }
 
     fn get_node_ref(&self, name: &str) -> usize {

@@ -21,33 +21,14 @@ pub mod frame;
 pub mod mesh;
 pub mod push_constant;
 pub mod renderer_data;
+pub mod layer;
 
 use std::{mem, ffi::c_void, collections::HashMap};
 
 use ash::vk;
 use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
 
-use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{mesh::FromObjTri, vertex_buffer::VertexAttributes, compute_layer::ComputeLayer, buffer::Buffer, image::Image}, util::graph::{Graph, self}};
-
-pub enum LayerRef {
-    Compute(usize),
-    Graphics(usize),
-}
-
-#[derive(Copy, Clone)]
-pub struct LayerDependencyInfo {
-    stage: vk::PipelineStageFlags,
-}
-
-pub struct LayerSubmitInfo {
-    wait_semaphores: Vec<vk::Semaphore>,
-    wait_stages: Vec<vk::PipelineStageFlags>,
-    signal_semaphores: Vec<vk::Semaphore>,
-    command_buffers: Vec<vk::CommandBuffer>,
-    queue: vk::Queue,
-    fence: vk::Fence,
-    submit_i: vk::SubmitInfo,
-}
+use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{mesh::FromObjTri, vertex_buffer::VertexAttributes, compute_layer::ComputeLayer, buffer::Buffer, image::Image, layer::{LayerRef, LayerDependencyInfo, LayerSubmitInfo}}, util::graph::{Graph, self}};
 
 pub struct Renderer {
     pub core: core::Core,
@@ -152,14 +133,13 @@ impl Renderer {
             let mut signal_semaphores = Vec::<vk::Semaphore>::new();
 
             let dependencies = self.layers.get_prev_edges(&node.name);
-            let dependants = self.layers.get_next_edges(&node.name);
 
             for dependency in dependencies {
-                let layer_ref = &self.layers.get_node(&dependency.src).data;
+                let layer_ref = &self.layers.get_src_node(&dependency).data;
 
                 wait_semaphores.push(match layer_ref {
-                    LayerRef::Compute(i) => self.get_compute_layer(&dependency.src).semaphore.semaphore,
-                    LayerRef::Graphics(i) => self.get_graphics_layer(&dependency.src).semaphore.semaphore,
+                    LayerRef::Compute(i) => self.get_compute_layer(&self.layers.get_src_node(dependency).name).semaphore.semaphore,
+                    LayerRef::Graphics(i) => self.get_graphics_layer(&self.layers.get_src_node(dependency).name).semaphore.semaphore,
                 });
                 wait_stages.push(dependency.info.stage);
             }
