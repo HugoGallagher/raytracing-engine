@@ -7,6 +7,13 @@ use crate::renderer::core::Core;
 use crate::renderer::device::Device;
 use crate::renderer::swapchain::Swapchain;
 
+#[derive(Copy, Clone)]
+pub enum ShaderType {
+    Compute,
+    Vertex,
+    Fragment,
+}
+
 pub struct Shader {
     pub module: vk::ShaderModule,
     pub flags: vk::ShaderStageFlags,

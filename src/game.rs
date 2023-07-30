@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::{math::{vec::{Vec2, Vec3, Vec4}, mat::Mat4}, renderer::{vertex_buffer::{VertexAttribute, VertexAttributes, NoVertices}, mesh::{FromObjTri, self}, graphics_pass::{GraphicsPassDrawInfo, GraphicsPassBuilder}, buffer::BufferBuilder, image::ImageBuilder, descriptors::CreationReference, compute_pass::{ComputePassDispatchInfo, ComputePassBuilder}, layer::LayerExecution}};
+use crate::{math::{vec::{Vec2, Vec3, Vec4}, mat::Mat4}, renderer::{vertex_buffer::{VertexAttribute, VertexAttributes, NoVertices}, mesh::{FromObjTri, self}, graphics_pass::{GraphicsPassDrawInfo, GraphicsPassBuilder}, buffer::BufferBuilder, image::ImageBuilder, descriptors::{CreationReference, BindingReference, DescriptorReference}, compute_pass::{ComputePassDispatchInfo, ComputePassBuilder}, layer::{LayerExecution, PassDependency}, shader::ShaderType}};
 
 use crate::renderer::Renderer;
 use crate::util::frametime::Frametime;
@@ -172,15 +172,30 @@ impl Game {
             .vertex_push_constant::<MeshPushConstant>()
             .with_depth_buffer();
 
-        game.renderer.add_layer("raytracer_layer", false, LayerExecution::Main);
+        //game.renderer.add_layer("raytracer_layer", false, LayerExecution::Main);
         game.renderer.add_layer("final_layer", true, LayerExecution::Main);
 
-        game.renderer.add_compute_pass("raytracer_layer", "raytracer", raytracer_pass_builder);
-
+        game.renderer.add_compute_pass("final_layer", "raytracer", raytracer_pass_builder);
         game.renderer.add_graphics_pass("final_layer", "draw_image_to_screen", quad_pass_builder);
         game.renderer.add_graphics_pass("final_layer", "mesh_draw", mesh_pass_builder);
 
-        game.renderer.add_layer_dependency("raytracer_layer", "final_layer", vk::PipelineStageFlags::FRAGMENT_SHADER);
+        let pass_dependancy = PassDependency {
+            src_ref: DescriptorReference::Image(0),
+            src_access: vk::AccessFlags::SHADER_WRITE,
+            src_stage: vk::PipelineStageFlags::COMPUTE_SHADER,
+            src_shader: ShaderType::Compute,
+            
+            dst_ref: DescriptorReference::Sampler(0),
+            dst_access: vk::AccessFlags::SHADER_READ,
+            dst_stage: vk::PipelineStageFlags::FRAGMENT_SHADER,
+            dst_shader: ShaderType::Fragment,
+        };
+
+        game.renderer.add_pass_dependency("final_layer", "raytracer", "draw_image_to_screen", pass_dependancy);
+
+        game.renderer.get_layer_mut("final_layer").set_root_path("draw_image_to_screen");
+
+        //game.renderer.add_layer_dependency("raytracer_layer", "final_layer", vk::PipelineStageFlags::FRAGMENT_SHADER);
 
         game
     }
@@ -242,7 +257,7 @@ impl Game {
     pub unsafe fn draw(&mut self) {
         self.renderer.pre_draw();
 
-        self.renderer.get_layer_mut("raytracer_layer").fill_compute_push_constant("raytracer", &self.raytracer_push_constant);
+        self.renderer.get_layer_mut("final_layer").fill_compute_push_constant("raytracer", &self.raytracer_push_constant);
         self.renderer.get_layer_mut("final_layer").fill_vertex_push_constant("mesh_draw", &self.mesh_push_constant);
         self.renderer.fill_buffer("tris", &self.tris);
 

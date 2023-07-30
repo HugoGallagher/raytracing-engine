@@ -13,7 +13,23 @@ use crate::renderer::descriptors::image_descriptor::ImageDescriptorBuilder;
 use crate::renderer::descriptors::sampler_descriptor::SamplerDescriptorBuilder;
 
 #[derive(Copy, Clone)]
+pub enum DescriptorType {
+    Uniform,
+    Storage,
+    Image,
+    Sampler,
+}
+
+#[derive(Copy, Clone)]
 pub enum BindingReference {
+    Uniform(usize),
+    Storage(usize),
+    Image(usize),
+    Sampler(usize),
+}
+
+#[derive(Copy, Clone)]
+pub enum DescriptorReference {
     Uniform(usize),
     Storage(usize),
     Image(usize),
@@ -37,6 +53,19 @@ pub struct DescriptorsBuilder {
     pub sampler_builders: Vec<(u32, SamplerDescriptorBuilder)>,
 
     next_binding: u32,
+    pub binding_references: Vec<BindingReference>,
+}
+
+pub struct Descriptors {
+    pub pool: vk::DescriptorPool,
+    pub sets: Vec<vk::DescriptorSet>,
+    pub set_layout: vk::DescriptorSetLayout,
+
+    pub uniforms: Vec<uniform_descriptor::UniformDescriptor>,
+    pub ssbos: Vec<storage_descriptor::StorageDescriptor>,
+    pub images: Vec<image_descriptor::ImageDescriptor>,
+    pub samplers: Vec<sampler_descriptor::SamplerDescriptor>,
+
     pub binding_references: Vec<BindingReference>,
 }
 
@@ -120,19 +149,6 @@ impl  DescriptorsBuilder {
     pub unsafe fn build(self, c: &Core, d: &Device) -> Descriptors {
         Descriptors::new(c, d, self)
     }
-}
-
-pub struct Descriptors {
-    pub pool: vk::DescriptorPool,
-    pub sets: Vec<vk::DescriptorSet>,
-    pub set_layout: vk::DescriptorSetLayout,
-
-    pub uniforms: Vec<uniform_descriptor::UniformDescriptor>,
-    pub ssbos: Vec<storage_descriptor::StorageDescriptor>,
-    pub images: Vec<image_descriptor::ImageDescriptor>,
-    pub samplers: Vec<sampler_descriptor::SamplerDescriptor>,
-
-    pub binding_references: Vec<BindingReference>,
 }
 
 impl Descriptors {

@@ -2,7 +2,7 @@ use ash::vk;
 
 use std::collections::HashMap;
 
-use crate::renderer::{core::Core, graphics_pass::GraphicsPassBuilder, semaphore::Semaphore, compute_pass::ComputePass};
+use crate::{renderer::{core::Core, graphics_pass::GraphicsPassBuilder, semaphore::Semaphore, compute_pass::ComputePass, descriptors::{BindingReference, DescriptorReference}, shader::ShaderType}, util::graph::Graph};
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::DescriptorsBuilder;
 use crate::renderer::commands::Commands;
@@ -25,6 +25,19 @@ pub enum PassType {
 pub struct PassRef {
     pass_type: PassType,
     index: usize,
+}
+
+#[derive(Copy, Clone)]
+pub struct PassDependency {
+    pub src_ref: DescriptorReference,
+    pub src_access: vk::AccessFlags,
+    pub src_stage: vk::PipelineStageFlags,
+    pub src_shader: ShaderType,
+    
+    pub dst_ref: DescriptorReference,
+    pub dst_access: vk::AccessFlags,
+    pub dst_stage: vk::PipelineStageFlags,
+    pub dst_shader: ShaderType,
 }
 
 #[derive(Copy, Clone)]
@@ -53,7 +66,9 @@ pub struct Layer {
     pub graphics_passes: Vec<GraphicsPass>,
     pub compute_passes: Vec<ComputePass>,
 
-    pub pass_refs: HashMap<String, PassRef>,
+    pub pass_graph: Graph<PassRef, PassDependency>,
+
+    pub root_pass: String,
 
     pub semaphore: Semaphore,
 
@@ -65,13 +80,14 @@ impl Layer {
         let commands = Commands::new(d, d.get_queue(exec).1, count, false);
         let semaphore = Semaphore::new(d);
 
-    Layer {
+        Layer {
             count,
             commands,
             exec,
             graphics_passes: Vec::new(),
             compute_passes: Vec::new(),
-            pass_refs: HashMap::new(),
+            pass_graph: Graph::new(),
+            root_pass: String::new(),
             semaphore,
             present,
         }
@@ -79,46 +95,50 @@ impl Layer {
 
     pub unsafe fn add_compute_pass(&mut self, name: &str, pass: ComputePass) {
         self.compute_passes.push(pass);
-        self.pass_refs.insert(name.to_string(), PassRef { pass_type: PassType::Compute, index: self.compute_passes.len() - 1 });
+        self.pass_graph.add_node(name, PassRef { pass_type: PassType::Compute, index: self.compute_passes.len() - 1 });
     }
 
     pub unsafe fn add_graphics_pass(&mut self, name: &str, pass: GraphicsPass) {
         self.graphics_passes.push(pass);
-        self.pass_refs.insert(name.to_string(), PassRef { pass_type: PassType::Graphics, index: self.graphics_passes.len() - 1 });
+        self.pass_graph.add_node(name, PassRef { pass_type: PassType::Graphics, index: self.graphics_passes.len() - 1 });
+    }
+
+    pub fn add_pass_dependency(&mut self, src_name: &str, dst_name: &str, dep: PassDependency) {
+        self.pass_graph.add_edge(src_name, dst_name, dep);
+    }
+
+    pub fn set_root_path(&mut self, name: &str) {
+        self.root_pass = name.to_string();
     }
 
     pub fn get_compute_pass(&self, name: &str) -> &ComputePass {
-        &self.compute_passes[self.pass_refs.get(name).unwrap().index]
+        &self.compute_passes[self.pass_graph.get_node(name).data.index]
     }
 
     pub fn get_graphics_pass(&self, name: &str) -> &GraphicsPass {
-        &self.graphics_passes[self.pass_refs.get(name).unwrap().index]
+        &self.graphics_passes[self.pass_graph.get_node(name).data.index]
     }
 
     pub unsafe fn fill_compute_push_constant<T>(&mut self, name: &str, data: &T) {
-        self.compute_passes[self.pass_refs.get(name).unwrap().index].push_constant.as_mut().expect("Error: Graphics pass has no vertex push constant to fill").set_data(data);
+        self.compute_passes[self.pass_graph.get_node(name).data.index].push_constant.as_mut().expect("Error: Graphics pass has no vertex push constant to fill").set_data(data);
     }
 
     pub unsafe fn fill_vertex_push_constant<T>(&mut self, name: &str, data: &T) {
-        self.graphics_passes[self.pass_refs.get(name).unwrap().index].vertex_push_constant.as_mut().expect("Error: Graphics pass has no vertex push constant to fill").set_data(data);
+        self.graphics_passes[self.pass_graph.get_node(name).data.index].vertex_push_constant.as_mut().expect("Error: Graphics pass has no vertex push constant to fill").set_data(data);
     }
 
     pub unsafe fn fill_fragment_push_constant<T>(&mut self, name: &str, data: &T) {
-        self.graphics_passes[self.pass_refs.get(name).unwrap().index].fragment_push_constant.as_mut().expect("Error: Graphics pass has no fragment push constant to fill").set_data(data);
+        self.graphics_passes[self.pass_graph.get_node(name).data.index].fragment_push_constant.as_mut().expect("Error: Graphics pass has no fragment push constant to fill").set_data(data);
     }
 
     pub unsafe fn record_one(&self, d: &Device, i: usize, present_index: usize) {
-        let mut pass_list = Vec::<PassRef>::with_capacity(self.compute_passes.len() + self.graphics_passes.len());
-
-        for i in 0..self.compute_passes.len() {
-            pass_list.push(PassRef { pass_type: PassType::Compute, index: i });
-        }
-        for i in 0..self.graphics_passes.len() {
-            pass_list.push(PassRef { pass_type: PassType::Graphics, index: i });
-        }
+        let mut dependencies = self.pass_graph.breadth_first_backwards(&self.root_pass);
+        dependencies.reverse();
 
         self.commands.record_one(d, i, |b| {
-            for pass_ref in &pass_list {
+            for dependency in &dependencies {
+                let pass_ref = dependency.data;
+
                 match pass_ref.pass_type {
                     PassType::Compute => {
                         let pass = &self.compute_passes[pass_ref.index];
@@ -189,6 +209,56 @@ impl Layer {
 
                         d.device.cmd_end_render_pass(b);
                     }
+                }
+
+                let dependant_edges = self.pass_graph.get_next_edges(&dependency.name);
+
+                for dependant_edge in dependant_edges {
+                    let dependant_info = dependant_edge.info;
+
+                    let descriptors = match dependant_info.src_shader {
+                        ShaderType::Compute => self.compute_passes[pass_ref.index].descriptors.as_ref().unwrap(),
+                        ShaderType::Vertex => self.graphics_passes[pass_ref.index].vertex_descriptors.as_ref().unwrap(),
+                        ShaderType::Fragment => self.graphics_passes[pass_ref.index].fragment_descriptors.as_ref().unwrap(),
+                    };
+
+                    let mut memory_barriers = Vec::<vk::MemoryBarrier>::new();
+                    let mut buffer_memory_barriers = Vec::<vk::BufferMemoryBarrier>::new();
+                    let mut image_memory_barriers = Vec::<vk::ImageMemoryBarrier>::new();
+
+                    match dependant_info.src_ref {
+                        DescriptorReference::Uniform(index) => {
+
+                        },
+                        DescriptorReference::Storage(index) => {
+
+                        },
+                        DescriptorReference::Image(index) => {
+                            let subresource_range = vk::ImageSubresourceRange::builder()
+                                .aspect_mask(vk::ImageAspectFlags::COLOR)
+                                .layer_count(1)
+                                .level_count(1)
+                                .build();
+
+                            let image_memory_barrier = vk::ImageMemoryBarrier::builder()
+                                .src_access_mask(dependant_info.src_access)
+                                .dst_access_mask(dependant_info.dst_access)
+                                .old_layout(vk::ImageLayout::GENERAL)
+                                .new_layout(vk::ImageLayout::GENERAL)
+                                .image(descriptors.images[index].data[i].image)
+                                .subresource_range(subresource_range)
+                                .src_queue_family_index(d.get_queue(self.exec).1)
+                                .dst_queue_family_index(d.get_queue(self.exec).1)
+                                .build();
+
+                            image_memory_barriers.push(image_memory_barrier);
+                        },
+                        DescriptorReference::Sampler(index) => {
+                            
+                        }
+                    }
+
+                    d.device.cmd_pipeline_barrier(b, dependant_info.src_stage, dependant_info.dst_stage, vk::DependencyFlags::empty(), &memory_barriers, &buffer_memory_barriers, &image_memory_barriers);
                 }
             }
         })

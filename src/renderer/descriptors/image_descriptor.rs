@@ -6,16 +6,19 @@ use crate::renderer::image::{Image, ImageBuilder};
 use crate::renderer::commands::Commands;
 use crate::renderer::descriptors::Descriptors;
 
-struct ImageData {
-    image: vk::Image,
-    view: vk::ImageView,
+#[derive(Copy, Clone)]
+pub struct ImageData {
+    pub image: vk::Image,
+    pub view: vk::ImageView,
 }
 
 pub struct ImageDescriptorBuilder {
     image_datas: Option<Vec<ImageData>>,
 }
 
-pub struct ImageDescriptor {}
+pub struct ImageDescriptor {
+    pub data: Vec<ImageData>,
+}
 
 impl  ImageDescriptorBuilder {
     pub fn new() -> ImageDescriptorBuilder {
@@ -32,7 +35,7 @@ impl  ImageDescriptorBuilder {
     }
 
     pub unsafe fn build(&self, c: &Core, d: &Device, binding: u32, sets: &Vec<vk::DescriptorSet>) -> ImageDescriptor {
-        ImageDescriptor::new(c, d, binding, &self.image_datas.as_ref().expect("Error: Image descriptor builder has no images"), sets)
+        ImageDescriptor::new(c, d, binding, self.image_datas.as_ref().expect("Error: Image descriptor builder has no images"), sets)
     }
 }
 
@@ -86,6 +89,8 @@ impl ImageDescriptor {
         d.device.queue_submit(d.get_queue(LayerExecution::Main).0, &submit_is, vk::Fence::null()).unwrap();
         d.device.queue_wait_idle(d.get_queue(LayerExecution::Main).0).unwrap();
 
-        ImageDescriptor {}
+        ImageDescriptor {
+            data: images.clone(),
+        }
     }
 }

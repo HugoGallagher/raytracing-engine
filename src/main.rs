@@ -41,7 +41,8 @@ fn main() {
             let raw_window_data_copy = raw_window_data;
             let mut game = game::Game::new(raw_window_data_copy.window_handle, raw_window_data_copy.display_handle, Vec2::new(window.res.0 as f32, window.res.1 as f32));
 
-            let game_should_close = false;
+            let mut game_should_close = false;
+            let mut renders = 0;
 
             while !game_should_close {
                 match key_r.try_recv() {
@@ -57,7 +58,10 @@ fn main() {
                     mouse_msg = mouse_r.try_recv();
                 }
 
-                game.main_loop();
+                //if renders < 1 {
+                    game.main_loop();
+                //    renders += 1;
+                //}
             }
         });
 

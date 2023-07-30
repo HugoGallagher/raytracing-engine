@@ -26,7 +26,7 @@ use std::{mem, ffi::c_void, collections::HashMap};
 use ash::vk;
 use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
 
-use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{mesh::FromObjTri, vertex_buffer::VertexAttributes, buffer::Buffer, image::Image, layer::{LayerDependencyInfo, LayerSubmitInfo}}, util::graph::{Graph, self, Node}};
+use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{mesh::FromObjTri, vertex_buffer::VertexAttributes, buffer::Buffer, image::Image, layer::{LayerDependencyInfo, LayerSubmitInfo, PassDependency}, descriptors::BindingReference}, util::graph::{Graph, self, Node}};
 
 pub struct Renderer {
     pub core: core::Core,
@@ -58,11 +58,7 @@ impl Renderer {
         let layers = Vec::<layer::Layer>::new();
         let layer_graph = Graph::new();
 
-        let data = renderer_data::RendererData {
-            count: FRAMES_IN_FLIGHT as usize,
-            buffers: HashMap::new(),
-            images: HashMap::new(),
-        };
+        let data = renderer_data::RendererData::new(FRAMES_IN_FLIGHT as usize);
 
         let mut frames = Vec::<frame::Frame>::new();
         for _ in 0..FRAMES_IN_FLIGHT {
@@ -214,6 +210,10 @@ impl Renderer {
     pub unsafe fn add_graphics_pass<T: VertexAttributes>(&mut self, layer_name: &str, pass_name: &str, builder: graphics_pass::GraphicsPassBuilder<T>) {
         let pass = builder.build(&self.core, &self.device);
         self.get_layer_mut(layer_name).add_graphics_pass(pass_name, pass);
+    }
+
+    pub fn add_pass_dependency(&mut self, layer_name: &str, src_name: &str, dst_name: &str, dep: PassDependency) {
+        self.get_layer_mut(layer_name).add_pass_dependency(src_name, dst_name, dep);
     }
 
     pub fn get_layer(&self, name: &str) -> &layer::Layer {

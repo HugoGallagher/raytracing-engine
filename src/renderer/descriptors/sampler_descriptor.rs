@@ -7,13 +7,15 @@ use crate::renderer::sampler::Sampler;
 use crate::renderer::descriptors::Descriptors;
 use crate::renderer::swapchain::Swapchain;
 
-struct ImageData {
+#[derive(Copy, Clone)]
+pub struct ImageData {
     image: vk::Image,
     view: vk::ImageView,
 }
 
 pub struct SamplerDescriptor {
     pub samplers: Vec<Sampler>,
+    pub data: Vec<ImageData>,
 }
 
 pub struct SamplerDescriptorBuilder {
@@ -45,12 +47,12 @@ impl SamplerDescriptorBuilder {
             samplers.push(Sampler::new(c, d, image_data.view));
         }
 
-        SamplerDescriptor::new(c, d, binding, &samplers, sets)
+        SamplerDescriptor::new(c, d, binding, self.image_datas.as_ref().unwrap(), &samplers, sets)
     }
 }
 
 impl SamplerDescriptor {
-    pub unsafe fn new(c: &Core, d: &Device, binding: u32, samplers: &Vec<Sampler>, sets: &Vec<vk::DescriptorSet>) -> SamplerDescriptor {
+    pub unsafe fn new(c: &Core, d: &Device, binding: u32, images: &Vec<ImageData>, samplers: &Vec<Sampler>, sets: &Vec<vk::DescriptorSet>) -> SamplerDescriptor {
         let mut write_sets = Vec::<vk::WriteDescriptorSet>::new();
 
         for i in 0..samplers.len() {
@@ -74,6 +76,7 @@ impl SamplerDescriptor {
 
         SamplerDescriptor {
             samplers: samplers.clone(),
+            data: images.clone(),
         }
     }
 }
