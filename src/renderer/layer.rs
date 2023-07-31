@@ -29,12 +29,12 @@ pub struct PassRef {
 
 #[derive(Copy, Clone)]
 pub struct PassDependency {
-    pub src_ref: DescriptorReference,
+    pub src_ref: BindingReference,
     pub src_access: vk::AccessFlags,
     pub src_stage: vk::PipelineStageFlags,
     pub src_shader: ShaderType,
     
-    pub dst_ref: DescriptorReference,
+    pub dst_ref: BindingReference,
     pub dst_access: vk::AccessFlags,
     pub dst_stage: vk::PipelineStageFlags,
     pub dst_shader: ShaderType,
@@ -66,7 +66,7 @@ pub struct Layer {
     pub graphics_passes: Vec<GraphicsPass>,
     pub compute_passes: Vec<ComputePass>,
 
-    pub pass_graph: Graph<PassRef, PassDependency>,
+    pub pass_graph: Graph<PassRef, Option<PassDependency>>,
 
     pub root_pass: String,
 
@@ -103,7 +103,7 @@ impl Layer {
         self.pass_graph.add_node(name, PassRef { pass_type: PassType::Graphics, index: self.graphics_passes.len() - 1 });
     }
 
-    pub fn add_pass_dependency(&mut self, src_name: &str, dst_name: &str, dep: PassDependency) {
+    pub fn add_pass_dependency(&mut self, src_name: &str, dst_name: &str, dep: Option<PassDependency>) {
         self.pass_graph.add_edge(src_name, dst_name, dep);
     }
 
@@ -214,51 +214,53 @@ impl Layer {
                 let dependant_edges = self.pass_graph.get_next_edges(&dependency.name);
 
                 for dependant_edge in dependant_edges {
-                    let dependant_info = dependant_edge.info;
+                    if let Some(dependant_info) = dependant_edge.info {
+                        let mut memory_barriers = Vec::<vk::MemoryBarrier>::new();
+                        let mut buffer_memory_barriers = Vec::<vk::BufferMemoryBarrier>::new();
+                        let mut image_memory_barriers = Vec::<vk::ImageMemoryBarrier>::new();
 
-                    let descriptors = match dependant_info.src_shader {
-                        ShaderType::Compute => self.compute_passes[pass_ref.index].descriptors.as_ref().unwrap(),
-                        ShaderType::Vertex => self.graphics_passes[pass_ref.index].vertex_descriptors.as_ref().unwrap(),
-                        ShaderType::Fragment => self.graphics_passes[pass_ref.index].fragment_descriptors.as_ref().unwrap(),
-                    };
+                        let descriptors = match dependant_info.src_shader {
+                            ShaderType::Compute => self.compute_passes[pass_ref.index].descriptors.as_ref().unwrap(),
+                            ShaderType::Vertex => self.graphics_passes[pass_ref.index].vertex_descriptors.as_ref().unwrap(),
+                            ShaderType::Fragment => self.graphics_passes[pass_ref.index].fragment_descriptors.as_ref().unwrap(),
+                        };
 
-                    let mut memory_barriers = Vec::<vk::MemoryBarrier>::new();
-                    let mut buffer_memory_barriers = Vec::<vk::BufferMemoryBarrier>::new();
-                    let mut image_memory_barriers = Vec::<vk::ImageMemoryBarrier>::new();
+                        match dependant_info.src_ref {
+                            BindingReference::Uniform(index) => {
 
-                    match dependant_info.src_ref {
-                        DescriptorReference::Uniform(index) => {
+                            },
+                            BindingReference::Storage(index) => {
 
-                        },
-                        DescriptorReference::Storage(index) => {
+                            },
+                            BindingReference::Image(index) => {
+                                let descriptor_index = descriptors.desciptor_references[index].index;
 
-                        },
-                        DescriptorReference::Image(index) => {
-                            let subresource_range = vk::ImageSubresourceRange::builder()
-                                .aspect_mask(vk::ImageAspectFlags::COLOR)
-                                .layer_count(1)
-                                .level_count(1)
-                                .build();
+                                let subresource_range = vk::ImageSubresourceRange::builder()
+                                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                                    .layer_count(1)
+                                    .level_count(1)
+                                    .build();
 
-                            let image_memory_barrier = vk::ImageMemoryBarrier::builder()
-                                .src_access_mask(dependant_info.src_access)
-                                .dst_access_mask(dependant_info.dst_access)
-                                .old_layout(vk::ImageLayout::GENERAL)
-                                .new_layout(vk::ImageLayout::GENERAL)
-                                .image(descriptors.images[index].data[i].image)
-                                .subresource_range(subresource_range)
-                                .src_queue_family_index(d.get_queue(self.exec).1)
-                                .dst_queue_family_index(d.get_queue(self.exec).1)
-                                .build();
+                                let image_memory_barrier = vk::ImageMemoryBarrier::builder()
+                                    .src_access_mask(dependant_info.src_access)
+                                    .dst_access_mask(dependant_info.dst_access)
+                                    .old_layout(vk::ImageLayout::GENERAL)
+                                    .new_layout(vk::ImageLayout::GENERAL)
+                                    .image(descriptors.images[descriptor_index].data[i].image)
+                                    .subresource_range(subresource_range)
+                                    .src_queue_family_index(d.get_queue(self.exec).1)
+                                    .dst_queue_family_index(d.get_queue(self.exec).1)
+                                    .build();
 
-                            image_memory_barriers.push(image_memory_barrier);
-                        },
-                        DescriptorReference::Sampler(index) => {
-                            
+                                image_memory_barriers.push(image_memory_barrier);
+                            },
+                            BindingReference::Sampler(index) => {
+                                
+                            }
                         }
-                    }
 
-                    d.device.cmd_pipeline_barrier(b, dependant_info.src_stage, dependant_info.dst_stage, vk::DependencyFlags::empty(), &memory_barriers, &buffer_memory_barriers, &image_memory_barriers);
+                        d.device.cmd_pipeline_barrier(b, dependant_info.src_stage, dependant_info.dst_stage, vk::DependencyFlags::empty(), &memory_barriers, &buffer_memory_barriers, &image_memory_barriers);
+                    }
                 }
             }
         })

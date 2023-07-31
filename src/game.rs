@@ -180,20 +180,21 @@ impl Game {
         game.renderer.add_graphics_pass("final_layer", "mesh_draw", mesh_pass_builder);
 
         let pass_dependancy = PassDependency {
-            src_ref: DescriptorReference::Image(0),
+            src_ref: BindingReference::Image(1),
             src_access: vk::AccessFlags::SHADER_WRITE,
             src_stage: vk::PipelineStageFlags::COMPUTE_SHADER,
             src_shader: ShaderType::Compute,
             
-            dst_ref: DescriptorReference::Sampler(0),
+            dst_ref: BindingReference::Sampler(0),
             dst_access: vk::AccessFlags::SHADER_READ,
             dst_stage: vk::PipelineStageFlags::FRAGMENT_SHADER,
             dst_shader: ShaderType::Fragment,
         };
 
-        game.renderer.add_pass_dependency("final_layer", "raytracer", "draw_image_to_screen", pass_dependancy);
+        game.renderer.add_pass_dependency("final_layer", "raytracer", "draw_image_to_screen", Some(pass_dependancy));
+        game.renderer.add_pass_dependency("final_layer", "draw_image_to_screen", "mesh_draw", None);
 
-        game.renderer.get_layer_mut("final_layer").set_root_path("draw_image_to_screen");
+        game.renderer.get_layer_mut("final_layer").set_root_path("mesh_draw");
 
         //game.renderer.add_layer_dependency("raytracer_layer", "final_layer", vk::PipelineStageFlags::FRAGMENT_SHADER);
 

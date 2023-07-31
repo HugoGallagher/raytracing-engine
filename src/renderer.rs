@@ -212,7 +212,7 @@ impl Renderer {
         self.get_layer_mut(layer_name).add_graphics_pass(pass_name, pass);
     }
 
-    pub fn add_pass_dependency(&mut self, layer_name: &str, src_name: &str, dst_name: &str, dep: PassDependency) {
+    pub fn add_pass_dependency(&mut self, layer_name: &str, src_name: &str, dst_name: &str, dep: Option<PassDependency>) {
         self.get_layer_mut(layer_name).add_pass_dependency(src_name, dst_name, dep);
     }
 

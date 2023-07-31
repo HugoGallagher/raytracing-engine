@@ -28,20 +28,18 @@ pub enum BindingReference {
     Sampler(usize),
 }
 
-#[derive(Copy, Clone)]
-pub enum DescriptorReference {
-    Uniform(usize),
-    Storage(usize),
-    Image(usize),
-    Sampler(usize),
-}
-
 #[derive(Clone)]
 pub enum CreationReference {
     Uniform(String),
     Storage(String),
     Image(String),
     Sampler(String),
+}
+
+#[derive(Copy, Clone)]
+pub struct DescriptorReference {
+    pub descriptor_type: DescriptorType,
+    pub index: usize,
 }
 
 pub struct DescriptorsBuilder {
@@ -54,6 +52,7 @@ pub struct DescriptorsBuilder {
 
     next_binding: u32,
     pub binding_references: Vec<BindingReference>,
+    pub desciptor_references: Vec<DescriptorReference>,
 }
 
 pub struct Descriptors {
@@ -67,6 +66,13 @@ pub struct Descriptors {
     pub samplers: Vec<sampler_descriptor::SamplerDescriptor>,
 
     pub binding_references: Vec<BindingReference>,
+    pub desciptor_references: Vec<DescriptorReference>,
+}
+
+impl DescriptorReference {
+    pub fn new(descriptor_type: DescriptorType, index: usize) -> DescriptorReference {
+        DescriptorReference { descriptor_type, index }
+    }
 }
 
 impl  DescriptorsBuilder {
@@ -74,12 +80,13 @@ impl  DescriptorsBuilder {
         DescriptorsBuilder {
             count: None,
             stage: None,
-            uniform_builders: Vec::<(u32, UniformDescriptorBuilder)>::new(),
-            storage_builders: Vec::<(u32, StorageDescriptorBuilder)>::new(),
-            image_builders: Vec::<(u32, ImageDescriptorBuilder)>::new(),
-            sampler_builders: Vec::<(u32, SamplerDescriptorBuilder)>::new(),
+            uniform_builders: Vec::new(),
+            storage_builders: Vec::new(),
+            image_builders: Vec::new(),
+            sampler_builders: Vec::new(),
             next_binding: 0,
-            binding_references: Vec::<BindingReference>::new(),
+            binding_references: Vec::new(),
+            desciptor_references: Vec::new(),
         }
     }
 
@@ -96,6 +103,7 @@ impl  DescriptorsBuilder {
 
     pub fn add_uniform_builder(mut self, builder: UniformDescriptorBuilder) -> DescriptorsBuilder {
         self.binding_references.push(BindingReference::Uniform(self.uniform_builders.len()));
+        self.desciptor_references.push(DescriptorReference::new(DescriptorType::Uniform, self.uniform_builders.len()));
         self.uniform_builders.push((self.next_binding, builder));
 
         self.next_binding += 1;
@@ -105,6 +113,7 @@ impl  DescriptorsBuilder {
 
     pub fn add_storage_builder(mut self, builder: StorageDescriptorBuilder) -> DescriptorsBuilder {
         self.binding_references.push(BindingReference::Storage(self.storage_builders.len()));
+        self.desciptor_references.push(DescriptorReference::new(DescriptorType::Storage, self.storage_builders.len()));
         self.storage_builders.push((self.next_binding, builder));
 
         self.next_binding += 1;
@@ -114,6 +123,7 @@ impl  DescriptorsBuilder {
 
     pub fn add_image_builder(mut self, builder: ImageDescriptorBuilder) -> DescriptorsBuilder {
         self.binding_references.push(BindingReference::Image(self.image_builders.len()));
+        self.desciptor_references.push(DescriptorReference::new(DescriptorType::Image, self.image_builders.len()));
         self.image_builders.push((self.next_binding, builder));
 
         self.next_binding += 1;
@@ -123,6 +133,7 @@ impl  DescriptorsBuilder {
 
     pub fn add_sampler_builder(mut self, builder: SamplerDescriptorBuilder) -> DescriptorsBuilder {
         self.binding_references.push(BindingReference::Sampler(self.sampler_builders.len()));
+        self.desciptor_references.push(DescriptorReference::new(DescriptorType::Sampler, self.sampler_builders.len()));
         self.sampler_builders.push((self.next_binding, builder));
 
         self.next_binding += 1;
@@ -276,6 +287,7 @@ impl Descriptors {
             samplers,
 
             binding_references: builder.binding_references.clone(),
+            desciptor_references: builder.desciptor_references.clone(),
         };
 
         for descriptor_builder in &builder.uniform_builders {
