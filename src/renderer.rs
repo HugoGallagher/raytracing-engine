@@ -21,12 +21,10 @@ pub mod push_constant;
 pub mod renderer_data;
 pub mod layer;
 
-use std::{mem, ffi::c_void, collections::HashMap};
-
 use ash::vk;
 use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
 
-use crate::{math::{vec::{Vec4, Vec3, Vec2}, mat::Mat4}, renderer::{mesh::FromObjTri, vertex_buffer::VertexAttributes, buffer::Buffer, image::Image, layer::{LayerDependencyInfo, LayerSubmitInfo, PassDependency}, descriptors::BindingReference}, util::graph::{Graph, self, Node}};
+use crate::{renderer::{vertex_buffer::VertexAttributes, buffer::Buffer, image::Image, layer::{LayerDependencyInfo, LayerSubmitInfo, PassDependency}}, util::graph::Graph};
 
 pub struct Renderer {
     pub core: core::Core,
@@ -119,8 +117,6 @@ impl Renderer {
             let dependencies = self.layer_graph.get_prev_edges(&node.name);
 
             for dependency in dependencies {
-                let layer_ref = &self.layer_graph.get_src_node(&dependency).data;
-
                 wait_semaphores.push(self.get_layer(&self.layer_graph.get_src_node(dependency).name).semaphore.semaphore);
                 wait_stages.push(dependency.info.stage);
             }

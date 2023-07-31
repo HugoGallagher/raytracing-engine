@@ -3,9 +3,7 @@ use std::fs::File;
 use ash::util::read_spv;
 use ash::vk;
 
-use crate::renderer::core::Core;
 use crate::renderer::device::Device;
-use crate::renderer::swapchain::Swapchain;
 
 #[derive(Copy, Clone)]
 pub enum ShaderType {

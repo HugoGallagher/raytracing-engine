@@ -1,11 +1,9 @@
-use std::fs::File;
-use std::{ffi::CString, io::Cursor};
+use std::ffi::CString;
 
 use ash::vk;
 
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
-use crate::renderer::descriptors::{Descriptors, DescriptorsBuilder};
 use crate::renderer::push_constant::PushConstant;
 use crate::renderer::shader::Shader;
 

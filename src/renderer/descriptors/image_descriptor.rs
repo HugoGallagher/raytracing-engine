@@ -1,10 +1,9 @@
 use ash::vk;
 
-use crate::renderer::{core::Core, image, layer::LayerExecution};
+use crate::renderer::{core::Core, layer::LayerExecution};
 use crate::renderer::device::Device;
-use crate::renderer::image::{Image, ImageBuilder};
+use crate::renderer::image::Image;
 use crate::renderer::commands::Commands;
-use crate::renderer::descriptors::Descriptors;
 
 #[derive(Copy, Clone)]
 pub struct ImageData {

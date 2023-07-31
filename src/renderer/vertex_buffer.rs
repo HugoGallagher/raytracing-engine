@@ -2,10 +2,8 @@ use std::{ffi::c_void, mem};
 
 use ash::vk;
 
-use crate::math::vec::Vec2;
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
-use crate::renderer::swapchain::Swapchain;
 use crate::renderer::buffer::{Buffer, BufferBuilder};
 
 pub struct VertexAttribute {

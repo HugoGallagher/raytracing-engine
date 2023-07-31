@@ -1,11 +1,9 @@
 use ash::vk;
 
-use crate::renderer::{core::Core, sampler, image};
+use crate::renderer::core::Core;
 use crate::renderer::device::Device;
 use crate::renderer::image::Image;
 use crate::renderer::sampler::Sampler;
-use crate::renderer::descriptors::Descriptors;
-use crate::renderer::swapchain::Swapchain;
 
 #[derive(Copy, Clone)]
 pub struct ImageData {

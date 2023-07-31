@@ -1,7 +1,5 @@
-use ash::vk::DebugUtilsMessageSeverityFlagsEXT;
-use ash::{vk, Entry, extensions::ext::DebugUtils};
-use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle, RawWindowHandle, RawDisplayHandle};
-use winit::window::Window;
+use ash::{vk, extensions::ext::DebugUtils};
+use raw_window_handle::RawDisplayHandle;
 
 use std::borrow::Cow;
 use std::ffi::{CStr, CString};

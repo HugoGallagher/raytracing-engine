@@ -1,4 +1,4 @@
-use std::{sync::{mpsc, Mutex, Arc}, ffi::c_void};
+use std::sync::mpsc;
 use std::thread;
 
 use engine::{math::vec::Vec2, game};

@@ -1,13 +1,9 @@
 use ash::vk;
 
-use std::collections::HashMap;
-
-use crate::{renderer::{core::Core, graphics_pass::GraphicsPassBuilder, semaphore::Semaphore, compute_pass::ComputePass, descriptors::{BindingReference, DescriptorReference}, shader::ShaderType}, util::graph::Graph};
+use crate::{renderer::{core::Core, semaphore::Semaphore, compute_pass::ComputePass, descriptors::BindingReference, shader::ShaderType}, util::graph::Graph};
 use crate::renderer::device::Device;
-use crate::renderer::descriptors::DescriptorsBuilder;
 use crate::renderer::commands::Commands;
-use crate::renderer::graphics_pass::{GraphicsPass, GraphicsPassDrawInfo};
-use crate::renderer::buffer::{Buffer, BufferBuilder};
+use crate::renderer::graphics_pass::GraphicsPass;
 
 #[derive(Copy, Clone)]
 pub enum LayerExecution {
@@ -255,7 +251,7 @@ impl Layer {
                                 image_memory_barriers.push(image_memory_barrier);
                             },
                             BindingReference::Sampler(index) => {
-                                
+                                // Empty: Samplers cannot write data so there is no need for a barrier
                             }
                         }
 
