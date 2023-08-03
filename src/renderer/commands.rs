@@ -24,8 +24,8 @@ impl Commands {
         let buffers = d.device.allocate_command_buffers(&buffer_alloc_i).unwrap();
 
         Commands {
-            pool: pool,
-            buffers: buffers,
+            pool,
+            buffers,
             one_time,
         }
     }

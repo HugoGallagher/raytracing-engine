@@ -21,7 +21,7 @@ impl Sampler {
         let sampler = d.device.create_sampler(&sampler_ci, None).unwrap();
 
         Sampler {
-            sampler: sampler,
+            sampler,
             view: v,
         }
     }

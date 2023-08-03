@@ -196,7 +196,7 @@ impl Game {
 
         game.renderer.get_layer_mut("final_layer").set_root_path("mesh_draw");
 
-        //game.renderer.add_layer_dependency("raytracer_layer", "final_layer", vk::PipelineStageFlags::FRAGMENT_SHADER);
+        //game.renderer.fill_buffer("tris", &game.tris);
 
         game
     }

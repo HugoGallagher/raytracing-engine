@@ -1,6 +1,6 @@
 use ash::vk;
 
-use crate::renderer::core::Core;
+use crate::renderer::{core::Core, image::ImageBuilder};
 use crate::renderer::device::Device;
 use crate::renderer::image::Image;
 
@@ -53,43 +53,14 @@ impl Swapchain {
         let swapchain = swapchain_init.create_swapchain(&swapchain_ci, None).unwrap();
 
         let image_handles = swapchain_init.get_swapchain_images(swapchain).unwrap();
-        
-        let images: Vec<Image> = image_handles.iter().map(|&i| {
-            let image_view_ci = vk::ImageViewCreateInfo::builder()
-                .image(i)
-                .view_type(vk::ImageViewType::TYPE_2D)
-                .format(d.surface_format.format)
-                .components(vk::ComponentMapping {
-                    r: vk::ComponentSwizzle::R,
-                    g: vk::ComponentSwizzle::G,
-                    b: vk::ComponentSwizzle::B,
-                    a: vk::ComponentSwizzle::A,
-               })
-                .subresource_range(vk::ImageSubresourceRange {
-                    aspect_mask: vk::ImageAspectFlags::COLOR,
-                    base_mip_level: 0,
-                    level_count: 1,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                });
 
-            let image_view = d.device.create_image_view(&image_view_ci, None).unwrap();
-            
-            let extent = vk::Extent3D {
-                width: d.surface_extent.width,
-                height: d.surface_extent.height,
-                depth: 1,
-            };
-
-            Image {
-                image: i,
-                view: image_view,
-                memory: None,
-                width: d.surface_extent.width,
-                height: d.surface_extent.height,
-                extent,
-            }
-        }).collect();
+        let images = ImageBuilder::new()
+            .width(d.surface_extent.width)
+            .height(d.surface_extent.height)
+            .format(d.surface_format.format)
+            .usage(vk::ImageUsageFlags::empty())
+            .pre_allocated_images(image_handles)
+            .build_many(c, d, image_count as usize);
 
         Swapchain {
             swapchain_init,

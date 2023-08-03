@@ -18,6 +18,7 @@ pub struct Buffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,
     pub size: u64,
+    pub p_dst: Option<*mut c_void>,
     pub host_visible: bool,
 }
 
@@ -133,11 +134,17 @@ impl Buffer {
         let memory = d.device.allocate_memory(&memory_alloc_i, None).unwrap();
         d.device.bind_buffer_memory(buffer, memory, 0).unwrap();
 
+        let p_dst = match host_visible {
+            true => Some(d.device.map_memory(memory, 0, size as u64, vk::MemoryMapFlags::empty()).unwrap()),
+            false => None,
+        };
+
         let buffer = Buffer {
             buffer,
             memory,
             size: size as u64,
             host_visible,
+            p_dst,
         };
 
         if data.is_some() && host_visible {
@@ -167,15 +174,15 @@ impl Buffer {
     }
 
     pub unsafe fn fill<T>(&self, d: &Device, data: &Vec<T>) {
+        assert!(self.host_visible, "Error: Buffer is not host visible");
+
         let size = data.len() * std::mem::size_of::<T>();
-        let dst = d.device.map_memory(self.memory, 0, size as u64, vk::MemoryMapFlags::empty()).unwrap();
-        std::ptr::copy(data.as_ptr() as *const c_void, dst, size);
-        d.device.unmap_memory(self.memory);
+        std::ptr::copy(data.as_ptr() as *const c_void, self.p_dst.unwrap(), size);
     }
 
     pub unsafe fn fill_from_ptr(&self, d: &Device, p: *const c_void, s: usize) {
-        let dst = d.device.map_memory(self.memory, 0, s as u64, vk::MemoryMapFlags::empty()).unwrap();
-        std::ptr::copy(p, dst, s);
-        d.device.unmap_memory(self.memory);
+        assert!(self.host_visible, "Error: Buffer is not host visible");
+        
+        std::ptr::copy(p, self.p_dst.unwrap(), s);
     }
 }

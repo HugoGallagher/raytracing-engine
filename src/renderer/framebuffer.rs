@@ -21,14 +21,13 @@ impl Framebuffer {
             None => (target.width, target.height),
         };
             
-        let mut framebuffer_ci_builder = vk::FramebufferCreateInfo::builder()
+        let framebuffer_ci = vk::FramebufferCreateInfo::builder()
             .render_pass(g.render_pass)
             .attachments(&views)
             .width(width)
             .height(height)
-            .layers(1);
-
-        let framebuffer_ci = framebuffer_ci_builder.build();
+            .layers(1)
+            .build();
 
         let framebuffer = d.device.create_framebuffer(&framebuffer_ci, None).unwrap();
 

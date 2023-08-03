@@ -20,7 +20,7 @@ impl Tri {
         
         Tri {
             verts: [Vec4::from_vec3(v0), Vec4::from_vec3(v1), Vec4::from_vec3(v2)],
-            normal: normal,
+            normal,
         }
     }
 }

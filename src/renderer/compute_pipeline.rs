@@ -57,8 +57,8 @@ impl ComputePipeline {
         let pipeline = d.device.create_compute_pipelines(vk::PipelineCache::null(), &[pipeline_ci], None).unwrap()[0];
 
         ComputePipeline {
-            pipeline: pipeline,
-            pipeline_layout: pipeline_layout,
+            pipeline,
+            pipeline_layout,
         }
     }
 }

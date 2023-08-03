@@ -18,7 +18,7 @@ pub struct Graph<T, U: Copy> {
 
     node_refs: HashMap<String, usize>,
     src_edge_refs: HashMap<String, Vec<(usize, usize)>>, // Key is src node, values are dst nodes, .0 is node refs, .1 is edge refs
-    dst_edge_refs: HashMap<String, Vec<(usize, usize)>>, // Key is dst_node, values are src nodes and edge info
+    dst_edge_refs: HashMap<String, Vec<(usize, usize)>>, // Key is dst_node, values are src nodes, .0 is node refs, .1 is edge refs
 }
 
 impl <T, U: Copy> Graph<T, U> {
