@@ -59,6 +59,7 @@ impl Swapchain {
             .height(d.surface_extent.height)
             .format(d.surface_format.format)
             .usage(vk::ImageUsageFlags::empty())
+            .layout(vk::ImageLayout::PRESENT_SRC_KHR)
             .pre_allocated_images(image_handles)
             .build_many(c, d, image_count as usize);
 

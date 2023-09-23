@@ -24,8 +24,8 @@ impl Framebuffer {
         let framebuffer_ci = vk::FramebufferCreateInfo::builder()
             .render_pass(g.render_pass)
             .attachments(&views)
-            .width(width)
-            .height(height)
+            .width(target.width)
+            .height(target.height)
             .layers(1)
             .build();
 

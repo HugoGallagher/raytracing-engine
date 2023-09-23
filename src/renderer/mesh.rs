@@ -32,7 +32,7 @@ enum ObjParserState {
 }
 
 pub fn parse_obj_as_tris<T: FromObjTri>(tris: &mut Vec<T>, name: &str) {
-    let mut file = fs::File::open(name).unwrap();
+    let mut file = fs::File::open(name).expect(&format!("Error: File \"{}\" not found", name));
     let mut raw = String::new();
     file.read_to_string(&mut raw).unwrap();
 

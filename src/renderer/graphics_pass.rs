@@ -1,5 +1,6 @@
 use ash::vk;
 
+use crate::math::vec::Vec4;
 use crate::renderer::{core::Core, descriptors::CreationReference, renderer_data::RendererData};
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::{Descriptors, DescriptorsBuilder};
@@ -34,6 +35,7 @@ pub struct GraphicsPassBuilder<'a, T: VertexAttributes> {
     vertex_descriptors_builder: Option<DescriptorsBuilder>,
     fragment_descriptors_builder: Option<DescriptorsBuilder>,
     with_depth_buffer: bool,
+    clear_col: Vec4,
 }
 
 pub struct GraphicsPass {
@@ -48,6 +50,9 @@ pub struct GraphicsPass {
     pub framebuffers: Vec<Framebuffer>,
     pub draw_info: GraphicsPassDrawInfo,
     pub indexed: bool,
+
+    pub clear_values: Vec<vk::ClearValue>,
+    pub target_rect: vk::Rect2D,
 }
 
 impl GraphicsPassDrawInfo {
@@ -91,6 +96,7 @@ impl <'a, T: VertexAttributes> GraphicsPassBuilder<'a, T> {
             vertex_descriptors_builder: None,
             fragment_descriptors_builder: None,
             with_depth_buffer: false,
+            clear_col: Vec4::zero(),
         }
     }
 
@@ -210,13 +216,19 @@ impl <'a, T: VertexAttributes> GraphicsPassBuilder<'a, T> {
         self
     }
 
+    pub fn clear_col(mut self, clear_col: Vec4) -> GraphicsPassBuilder<'a, T> {
+        self.clear_col = clear_col;
+
+        self
+    }
+
     pub unsafe fn build(self, c: &Core, d: &Device) -> GraphicsPass {
-        GraphicsPass::new(c, d, self.targets.expect("Error: Graphics pass builder has no targets"), self.extent, self.offset, self.verts, self.vertex_indices, self.vertex_descriptors_builder, self.fragment_descriptors_builder, self.vertex_push_constant_builder, self.fragment_push_constant_builder, self.vs.expect("Error: Graphics pass builder has no vertex shader"), self.fs.expect("Error: Graphics pass builder has no fragment shader"), self.with_depth_buffer, self.draw_info.expect("Error: Graphics pass builder has no draw info"))
+        GraphicsPass::new(c, d, self.targets.expect("Error: Graphics pass builder has no targets"), self.extent, self.offset, self.verts, self.vertex_indices, self.vertex_descriptors_builder, self.fragment_descriptors_builder, self.vertex_push_constant_builder, self.fragment_push_constant_builder, self.vs.expect("Error: Graphics pass builder has no vertex shader"), self.fs.expect("Error: Graphics pass builder has no fragment shader"), self.with_depth_buffer, self.clear_col, self.draw_info.expect("Error: Graphics pass builder has no draw info"))
     }
 }
 
 impl GraphicsPass {
-    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, targets: Vec<Image>, extent: Option<vk::Extent2D>, offset: Option<vk::Offset2D>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, vertex_descriptors_builder: Option<DescriptorsBuilder>, fragment_descriptors_builder: Option<DescriptorsBuilder>, vertex_push_constant_builder: Option<PushConstantBuilder>, fragment_push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, with_depth_buffer: bool, draw_info: GraphicsPassDrawInfo) -> GraphicsPass {
+    pub unsafe fn new<T: VertexAttributes>(c: &Core, d: &Device, targets: Vec<Image>, extent: Option<vk::Extent2D>, offset: Option<vk::Offset2D>, verts: Option<&Vec<T>>, indices: Option<&Vec<u32>>, vertex_descriptors_builder: Option<DescriptorsBuilder>, fragment_descriptors_builder: Option<DescriptorsBuilder>, vertex_push_constant_builder: Option<PushConstantBuilder>, fragment_push_constant_builder: Option<PushConstantBuilder>, vs: &str, fs: &str, with_depth_buffer: bool, clear_col: Vec4, draw_info: GraphicsPassDrawInfo) -> GraphicsPass {
         let vertex_descriptors = match vertex_descriptors_builder {
             Some(de_b) => Some(de_b.build(c, d)),
             None => None
@@ -264,11 +276,17 @@ impl GraphicsPass {
 
         let target_rect = vk::Rect2D { extent: target_extent, offset };
         
-        let pipeline = GraphicsPipeline::new(c, d, target_rect, vertex_buffer.as_ref(), vertex_descriptor_set_layout, fragment_descriptor_set_layout, vertex_push_constant.as_ref(), fragment_push_constant.as_ref(), vs, fs, with_depth_buffer);
+        let pipeline = GraphicsPipeline::new(c, d, target_rect, vertex_buffer.as_ref(), vertex_descriptor_set_layout, fragment_descriptor_set_layout, vertex_push_constant.as_ref(), fragment_push_constant.as_ref(), vs, fs, targets[0].layout, with_depth_buffer);
 
         let framebuffers = Framebuffer::new_many(d, &pipeline, &targets, extent);
 
         let indexed = indices.is_some();
+
+        let mut clear_values = vec![vk::ClearValue { color: vk::ClearColorValue { float32: [clear_col.x, clear_col.y, clear_col.z, clear_col.w] } }];
+
+        if with_depth_buffer {
+            clear_values.push(vk::ClearValue { depth_stencil: vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 } });
+        }
 
         GraphicsPass {
             vertex_push_constant,
@@ -280,6 +298,8 @@ impl GraphicsPass {
             framebuffers,
             draw_info,
             indexed,
+            clear_values,
+            target_rect,
         }
     }
 }

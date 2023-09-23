@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crate::renderer::{buffer::{Buffer, BufferBuilder}, image::{Image, ImageBuilder}, core::Core, device::Device};
 
-pub enum ResourceRef {
+#[derive(Copy, Clone)]
+pub enum ResourceReference {
     Buffer(usize),
     Image(usize),
 }
@@ -52,5 +53,13 @@ impl RendererData {
 
     pub fn get_image_refs(&self, name: &str) -> usize {
         *self.image_refs.get(name).unwrap()
+    }
+
+    pub fn get_buffers_from_ref(&self, index: usize) -> &Vec<Buffer> {
+        &self.buffers[index]
+    }
+
+    pub fn get_images_from_ref(&self, index: usize) -> &Vec<Image> {
+        &self.images[index]
     }
 }

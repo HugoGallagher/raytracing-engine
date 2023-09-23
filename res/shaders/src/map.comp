@@ -1,0 +1,44 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+const float SIZE = 0.05;
+
+const float NUM_GRID_LINES = 10.0;
+const float GRID_LINE_GAP = 1.0 / NUM_GRID_LINES;
+const float GRID_LINE_THICKNESS = 0.05 / NUM_GRID_LINES;
+
+layout(push_constant) uniform push_constants {
+    vec2 pos;
+} scene;
+
+layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
+
+void main() {
+    vec2 coord = vec2(gl_GlobalInvocationID.xy) / 512.0;
+
+    float dst_to_pos = distance(coord, scene.pos);
+
+    vec2 grid_line_indices;
+    grid_line_indices.x = floor(coord.x / GRID_LINE_GAP);
+    grid_line_indices.y = floor(coord.y / GRID_LINE_GAP);
+
+    vec2 grid_line_coords = grid_line_indices / NUM_GRID_LINES;
+
+    bool grid_line_horizontal = abs(coord.x - grid_line_coords.x) < GRID_LINE_THICKNESS;
+    bool grid_line_vertical = abs(coord.y - grid_line_coords.y) < GRID_LINE_THICKNESS;
+
+    bool within_circle = dst_to_pos < SIZE;
+    bool grid_line = grid_line_horizontal || grid_line_vertical;
+
+    vec4 outColor;
+    if (within_circle) {
+        outColor = vec4(1.0, 0.0, 0.5, 1.0);
+    } else if (grid_line) {
+        outColor = vec4(0.5, 0.0, 1.0, 1.0);
+    } else {
+        outColor = vec4(0.9, 0.8, 1.0, 1.0);
+    }
+
+    imageStore(img, ivec2(gl_GlobalInvocationID.xy), outColor);
+}

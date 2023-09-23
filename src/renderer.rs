@@ -98,7 +98,7 @@ impl Renderer {
         let present_indices = [self.present_index as u32];
 
         for layer in &self.layers {
-            layer.record_one(&self.device, self.current_frame, self.present_index);
+            layer.record_one(&self.device, &self.data, self.current_frame, self.present_index);
         }
 
         let mut present_wait_semaphores = Vec::<vk::Semaphore>::new();

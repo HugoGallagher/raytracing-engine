@@ -1,6 +1,6 @@
 use ash::vk;
 
-use crate::{renderer::{core::Core, semaphore::Semaphore, compute_pass::ComputePass, descriptors::BindingReference, shader::ShaderType}, util::graph::Graph};
+use crate::{renderer::{core::Core, semaphore::Semaphore, compute_pass::ComputePass, shader::ShaderType, renderer_data::{ResourceReference, RendererData}}, util::graph::Graph};
 use crate::renderer::device::Device;
 use crate::renderer::commands::Commands;
 use crate::renderer::graphics_pass::GraphicsPass;
@@ -25,12 +25,12 @@ pub struct PassRef {
 
 #[derive(Copy, Clone)]
 pub struct PassDependency {
-    pub src_ref: BindingReference,
+    pub resource: ResourceReference,
+
     pub src_access: vk::AccessFlags,
     pub src_stage: vk::PipelineStageFlags,
     pub src_shader: ShaderType,
     
-    pub dst_ref: BindingReference,
     pub dst_access: vk::AccessFlags,
     pub dst_stage: vk::PipelineStageFlags,
     pub dst_shader: ShaderType,
@@ -127,7 +127,7 @@ impl Layer {
         self.graphics_passes[self.pass_graph.get_node(name).data.index].fragment_push_constant.as_mut().expect("Error: Graphics pass has no fragment push constant to fill").set_data(data);
     }
 
-    pub unsafe fn record_one(&self, d: &Device, i: usize, present_index: usize) {
+    pub unsafe fn record_one(&self, d: &Device, resources: &RendererData, i: usize, present_index: usize) {
         let mut dependencies = self.pass_graph.breadth_first_backwards(&self.root_pass);
         dependencies.reverse();
 
@@ -155,19 +155,11 @@ impl Layer {
                     PassType::Graphics => {
                         let pass = &self.graphics_passes[pass_ref.index];
 
-                        let mut clear_values = vec![vk::ClearValue { color: vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}}];
-
-                        if pass.pipeline.depth_image.is_some() {
-                            clear_values.push(vk::ClearValue { depth_stencil: vk::ClearDepthStencilValue { depth: 1.0, stencil: 0} });
-                        }
-
-                        let rect = pass.pipeline.scissor;
-
                         let render_pass_bi = vk::RenderPassBeginInfo::builder()
                             .render_pass(pass.pipeline.render_pass)
                             .framebuffer(pass.framebuffers[present_index].framebuffer)
-                            .render_area(rect)
-                            .clear_values(&clear_values);
+                            .render_area(pass.target_rect)
+                            .clear_values(&pass.clear_values);
 
                         if let Some(push_constant) = &pass.vertex_push_constant {
                             d.device.cmd_push_constants(b, pass.pipeline.pipeline_layout, push_constant.stage, 0, &push_constant.data);
@@ -215,22 +207,16 @@ impl Layer {
                         let mut buffer_memory_barriers = Vec::<vk::BufferMemoryBarrier>::new();
                         let mut image_memory_barriers = Vec::<vk::ImageMemoryBarrier>::new();
 
-                        let descriptors = match dependant_info.src_shader {
-                            ShaderType::Compute => self.compute_passes[pass_ref.index].descriptors.as_ref().unwrap(),
-                            ShaderType::Vertex => self.graphics_passes[pass_ref.index].vertex_descriptors.as_ref().unwrap(),
-                            ShaderType::Fragment => self.graphics_passes[pass_ref.index].fragment_descriptors.as_ref().unwrap(),
-                        };
+                        match dependant_info.resource {
+                            ResourceReference::Buffer(index) => {
+                                let memory_barrier = vk::MemoryBarrier::builder()
+                                    .src_access_mask(dependant_info.src_access)
+                                    .dst_access_mask(dependant_info.dst_access)
+                                    .build();
 
-                        match dependant_info.src_ref {
-                            BindingReference::Uniform(index) => {
-
+                                memory_barriers.push(memory_barrier);
                             },
-                            BindingReference::Storage(index) => {
-
-                            },
-                            BindingReference::Image(index) => {
-                                let descriptor_index = descriptors.desciptor_references[index].index;
-
+                            ResourceReference::Image(index) => {
                                 let subresource_range = vk::ImageSubresourceRange::builder()
                                     .aspect_mask(vk::ImageAspectFlags::COLOR)
                                     .layer_count(1)
@@ -242,16 +228,13 @@ impl Layer {
                                     .dst_access_mask(dependant_info.dst_access)
                                     .old_layout(vk::ImageLayout::GENERAL)
                                     .new_layout(vk::ImageLayout::GENERAL)
-                                    .image(descriptors.images[descriptor_index].data[i].image)
+                                    .image(resources.get_images_from_ref(index)[i].image)
                                     .subresource_range(subresource_range)
                                     .src_queue_family_index(d.get_queue(self.exec).1)
                                     .dst_queue_family_index(d.get_queue(self.exec).1)
                                     .build();
 
                                 image_memory_barriers.push(image_memory_barrier);
-                            },
-                            BindingReference::Sampler(index) => {
-                                // Empty: Samplers cannot write data so there is no need for a barrier
                             }
                         }
 

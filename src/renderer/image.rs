@@ -1,7 +1,9 @@
 use ash::vk;
 
+use crate::renderer::commands::Commands;
 use crate::renderer::core::Core;
 use crate::renderer::device::Device;
+use crate::renderer::layer::LayerExecution;
 use crate::renderer::sampler::Sampler;
 
 #[derive(Clone)]
@@ -11,6 +13,7 @@ pub struct ImageBuilder {
     pub depth: Option<u32>,
     pub usage: Option<vk::ImageUsageFlags>,
     pub format: Option<vk::Format>,
+    pub layout: Option<vk::ImageLayout>,
     pub pre_allocated_images: Option<Vec<vk::Image>>,
 }
 
@@ -23,7 +26,9 @@ pub struct Image {
     pub width: u32,
     pub height: u32,
     pub extent: vk::Extent3D,
+    pub layout: vk::ImageLayout,
 }
+
 impl ImageBuilder {
     pub fn new() -> ImageBuilder {
         ImageBuilder {
@@ -32,6 +37,7 @@ impl ImageBuilder {
             depth: None,
             usage: None,
             format: None,
+            layout: None,
             pre_allocated_images: None,
         }
     }
@@ -66,6 +72,12 @@ impl ImageBuilder {
         self
     }
     
+    pub fn layout(mut self, layout: vk::ImageLayout) -> ImageBuilder {
+        self.layout = Some(layout);
+
+        self
+    }
+    
     pub fn pre_allocated_images(mut self, pre_allocated_images: Vec<vk::Image>) -> ImageBuilder {
         self.pre_allocated_images = Some(pre_allocated_images);
 
@@ -87,6 +99,7 @@ impl ImageBuilder {
             self.depth,
             self.usage.expect("Error: Image builder has no specified usage"),
             self.format.expect("Error: Image builder has no specified format"),
+            self.layout,
             pre_allocated_image,
         )
     }
@@ -110,6 +123,7 @@ impl ImageBuilder {
                 self.depth,
                 self.usage.expect("Error: Image builder has no specified usage"),
                 self.format.expect("Error: Image builder has no specified format"),
+                self.layout,
                 pre_allocated_image,
             ));
         }
@@ -119,7 +133,7 @@ impl ImageBuilder {
 }
 
 impl Image {
-    pub unsafe fn new(c: &Core, d: &Device, w: u32, h: u32, de: Option<u32>, u: vk::ImageUsageFlags, format: vk::Format, pre_allocated_image: Option<vk::Image>) -> Image {
+    pub unsafe fn new(c: &Core, d: &Device, w: u32, h: u32, de: Option<u32>, u: vk::ImageUsageFlags, format: vk::Format, layout: Option<vk::ImageLayout>, pre_allocated_image: Option<vk::Image>) -> Image {
         let (image_type, depth) = match de {
             Some(dep) => (vk::ImageType::TYPE_3D, dep),
             None => (vk::ImageType::TYPE_2D, 1),
@@ -186,13 +200,50 @@ impl Image {
 
         let view = d.device.create_image_view(&view_ci, None).unwrap();
 
+        let mut image_layout = vk::ImageLayout::UNDEFINED;
+
+        if layout.is_some() {
+            image_layout = layout.unwrap();
+            
+            if pre_allocated_image.is_none() {
+                let layout_transition_buffer = Commands::new(d, d.get_queue(LayerExecution::Main).1, 1, false);
+
+                layout_transition_buffer.record_all(d, |i, b| {
+                    let subresource_range = vk::ImageSubresourceRange::builder()
+                        .aspect_mask(vk::ImageAspectFlags::COLOR)
+                        .layer_count(1)
+                        .level_count(1)
+                        .build();
+    
+                    let barrier = vk::ImageMemoryBarrier::builder()
+                        .image(image)
+                        .old_layout(vk::ImageLayout::UNDEFINED)
+                        .new_layout(image_layout)
+                        .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                        .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                        .subresource_range(subresource_range)
+                        .build();
+    
+                    d.device.cmd_pipeline_barrier(b, vk::PipelineStageFlags::TOP_OF_PIPE, vk::PipelineStageFlags::TRANSFER, vk::DependencyFlags::empty(), &[], &[], &[barrier]);
+                });
+    
+                let submit_is = [vk::SubmitInfo::builder()
+                    .command_buffers(&layout_transition_buffer.buffers)
+                    .build()];
+    
+                d.device.queue_submit(d.get_queue(LayerExecution::Main).0, &submit_is, vk::Fence::null()).unwrap();
+                d.device.queue_wait_idle(d.get_queue(LayerExecution::Main).0).unwrap();
+            }
+        }
+
         Image {
             image,
             view,
-            memory: memory,
+            memory,
             width: w,
             height: h,
             extent,
+            layout: image_layout,
         }
     }
 

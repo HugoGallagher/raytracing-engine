@@ -21,7 +21,7 @@ pub struct GraphicsPipeline {
 }
 
 impl GraphicsPipeline {
-    pub unsafe fn new(c: &Core, d: &Device, target_rect: vk::Rect2D, vertex_buffer: Option<&VertexBuffer>, vertex_descriptor_set_layout: Option<vk::DescriptorSetLayout>, fragment_descriptor_set_layout: Option<vk::DescriptorSetLayout>, vertex_push_constant: Option<&PushConstant>, fragment_push_constant: Option<&PushConstant>, vs: &str, fs: &str, with_depth_buffer: bool) -> GraphicsPipeline {
+    pub unsafe fn new(c: &Core, d: &Device, target_rect: vk::Rect2D, vertex_buffer: Option<&VertexBuffer>, vertex_descriptor_set_layout: Option<vk::DescriptorSetLayout>, fragment_descriptor_set_layout: Option<vk::DescriptorSetLayout>, vertex_push_constant: Option<&PushConstant>, fragment_push_constant: Option<&PushConstant>, vs: &str, fs: &str, target_layout: vk::ImageLayout, with_depth_buffer: bool) -> GraphicsPipeline {
         let vert_shader = Shader::new(d, vs, vk::ShaderStageFlags::VERTEX);
         let frag_shader = Shader::new(d, fs, vk::ShaderStageFlags::FRAGMENT);
 
@@ -150,7 +150,7 @@ impl GraphicsPipeline {
             load_op: vk::AttachmentLoadOp::CLEAR,
             store_op: vk::AttachmentStoreOp::STORE,
             initial_layout: vk::ImageLayout::UNDEFINED,
-            final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
+            final_layout: target_layout,
             ..Default::default()
         }];
 
