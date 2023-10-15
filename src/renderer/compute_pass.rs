@@ -32,6 +32,16 @@ impl ComputePassDispatchInfo {
     pub fn new(x: u32, y: u32, z: u32) -> ComputePassDispatchInfo {
         ComputePassDispatchInfo { x, y, z }
     }
+
+    pub fn for_image(name: &str, data: &RendererData) -> ComputePassDispatchInfo {
+        let image = data.get_images(name)[0];
+
+        ComputePassDispatchInfo {
+            x: image.width / 16 + 1,
+            y: image.height / 16 + 1,
+            z: 1,
+        }
+    }
 }
 
 impl <'a> ComputePassBuilder<'a> {

@@ -70,7 +70,6 @@ pub struct Game {
     rot: Vec3,
 
     uv_pos: Vec2,
-    uv_ratio: f32,
 
     map_push_constant: MapPushConstant,
     mesh_push_constant: MeshPushConstant,
@@ -107,7 +106,6 @@ impl Game {
             rot: Vec3::new(0.0, 0.0, 0.0),
 
             uv_pos: Vec2::zero(),
-            uv_ratio: 3.0 / 10.0,
 
             map_push_constant,
             mesh_push_constant,
@@ -116,8 +114,8 @@ impl Game {
         };
 
         let map_image_builder = ImageBuilder::new()
-            .width(1000)
-            .height((1000.0 * game.uv_ratio) as u32)
+            .width(1024)
+            .height(1024)
             .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED)
             .format(vk::Format::B8G8R8A8_UNORM)
             .layout(vk::ImageLayout::GENERAL);
@@ -129,7 +127,7 @@ impl Game {
 
         let map_pass_builder = ComputePassBuilder::new()
             .compute_shader("map.comp")
-            .dispatch_info(ComputePassDispatchInfo::new(32, 32, 1))
+            .dispatch_info(ComputePassDispatchInfo::for_image("map", &game.renderer.data))
             .push_constant::<MapPushConstant>()
             .descriptors(map_pass_creation_refs, &game.renderer.data);
 
@@ -211,10 +209,10 @@ impl Game {
         }
 
         if self.key_down(VirtualKeyCode::I) {
-            self.uv_pos.y -= uv_vel;
+            self.uv_pos.y += uv_vel;
         }
         if self.key_down(VirtualKeyCode::K) {
-            self.uv_pos.y += uv_vel;
+            self.uv_pos.y -= uv_vel;
         }
         if self.key_down(VirtualKeyCode::J) {
             self.uv_pos.x -= uv_vel;
@@ -223,10 +221,10 @@ impl Game {
             self.uv_pos.x += uv_vel;
         }
 
+        if self.uv_pos.y < 0.0 { self.uv_pos.y += 1.0 }
+        if self.uv_pos.y >= 1.0 { self.uv_pos.y -= 1.0 }
         if self.uv_pos.x < 0.0 { self.uv_pos.x += 1.0 }
         if self.uv_pos.x >= 1.0 { self.uv_pos.x -= 1.0 }
-        if self.uv_pos.y < 0.0 { self.uv_pos.y += self.uv_ratio }
-        if self.uv_pos.y >= self.uv_ratio { self.uv_pos.y -= self.uv_ratio }
 
         // self.uv_pos.x %= 1.0;
         // self.uv_pos.y %= 1.0;

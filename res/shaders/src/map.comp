@@ -15,7 +15,7 @@ layout(push_constant) uniform push_constants {
 layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
 
 void main() {
-    vec2 coord = vec2(gl_GlobalInvocationID.xy) / 512.0;
+    vec2 coord = vec2(gl_GlobalInvocationID.xy) / 1024;
 
     float dst_to_pos = distance(coord, scene.pos);
 
