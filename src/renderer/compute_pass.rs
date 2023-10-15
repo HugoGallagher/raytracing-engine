@@ -1,6 +1,6 @@
 use ash::vk;
 
-use crate::renderer::{core::Core, descriptors::CreationReference, renderer_data::RendererData};
+use crate::renderer::{core::Core, descriptors::CreationReference, renderer_data::RendererData, layer::Pass};
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::{Descriptors, DescriptorsBuilder};
 use crate::renderer::compute_pipeline::ComputePipeline;
@@ -25,6 +25,8 @@ pub struct ComputePass {
     pub pipeline: ComputePipeline,
     pub dispatch_info: ComputePassDispatchInfo,
 }
+
+impl Pass for ComputePass {}
 
 impl ComputePassDispatchInfo {
     pub fn new(x: u32, y: u32, z: u32) -> ComputePassDispatchInfo {

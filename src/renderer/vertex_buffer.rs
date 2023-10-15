@@ -2,7 +2,7 @@ use std::{ffi::c_void, mem};
 
 use ash::vk;
 
-use crate::renderer::core::Core;
+use crate::{renderer::core::Core, math::vec::Vec4};
 use crate::renderer::device::Device;
 use crate::renderer::buffer::{Buffer, BufferBuilder};
 
@@ -20,6 +20,14 @@ pub struct NoVertices {}
 impl VertexAttributes for NoVertices {
     fn get_attribute_data() -> Vec<VertexAttribute> {
         vec![]
+    }
+}
+
+impl VertexAttributes for Vec4 {
+    fn get_attribute_data() -> Vec<VertexAttribute> {
+        vec![
+            VertexAttribute { format: vk::Format::R32G32B32A32_SFLOAT, offset: 0 },
+        ]
     }
 }
 

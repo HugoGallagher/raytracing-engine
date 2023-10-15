@@ -232,6 +232,11 @@ impl ops::Sub<Vec4> for Vec4 {
     }
 }
 
+impl std::fmt::Display for Vec2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "x: {}, y: {}", self.x, self.y)
+    }
+}
 impl std::fmt::Display for Vec3 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "x: {}, y: {}, z: {}", self.x, self.y, self.z)

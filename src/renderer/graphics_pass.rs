@@ -1,6 +1,6 @@
 use ash::vk;
 
-use crate::math::vec::Vec4;
+use crate::{math::vec::Vec4, renderer::layer::Pass};
 use crate::renderer::{core::Core, descriptors::CreationReference, renderer_data::RendererData};
 use crate::renderer::device::Device;
 use crate::renderer::descriptors::{Descriptors, DescriptorsBuilder};
@@ -54,6 +54,8 @@ pub struct GraphicsPass {
     pub clear_values: Vec<vk::ClearValue>,
     pub target_rect: vk::Rect2D,
 }
+
+impl Pass for GraphicsPass {}
 
 impl GraphicsPassDrawInfo {
     pub fn simple_vertex(vertex_count: usize) -> GraphicsPassDrawInfo {

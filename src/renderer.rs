@@ -47,7 +47,7 @@ impl Renderer {
     pub unsafe fn new(window: RawWindowHandle, display: RawDisplayHandle) -> Renderer {
         const FRAMES_IN_FLIGHT: u32 = 2;
 
-        let debug = true;
+        let debug = false;
 
         let core = core::Core::new(debug, display);
         let device = device::Device::new(&core, window, display);

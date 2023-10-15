@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::{math::{vec::{Vec2, Vec3, Vec4}, mat::Mat4}, renderer::{vertex_buffer::{VertexAttribute, VertexAttributes, NoVertices}, mesh::{FromObjTri, self}, graphics_pass::{GraphicsPassDrawInfo, GraphicsPassBuilder}, buffer::BufferBuilder, image::{ImageBuilder, Image}, descriptors::{CreationReference, BindingReference}, compute_pass::{ComputePassDispatchInfo, ComputePassBuilder}, layer::{LayerExecution, PassDependency}, shader::ShaderType, renderer_data::ResourceReference}};
+use crate::{math::{vec::{Vec2, Vec3, Vec4}, mat::Mat4}, renderer::{vertex_buffer::{VertexAttribute, VertexAttributes, NoVertices}, mesh::{FromObjTri, self}, graphics_pass::{GraphicsPassDrawInfo, GraphicsPassBuilder}, buffer::BufferBuilder, image::{ImageBuilder, Image}, descriptors::{CreationReference, BindingReference}, compute_pass::{ComputePassDispatchInfo, ComputePassBuilder}, layer::{LayerExecution, PassDependency}, shader::ShaderType, renderer_data::ResourceReference}, space::meshes::Torus};
 
 use crate::renderer::Renderer;
 use crate::util::frametime::Frametime;
@@ -70,9 +70,12 @@ pub struct Game {
     rot: Vec3,
 
     uv_pos: Vec2,
+    uv_ratio: f32,
 
     map_push_constant: MapPushConstant,
     mesh_push_constant: MeshPushConstant,
+
+    space_mesh: Torus,
 }
 
 impl Game {
@@ -85,6 +88,8 @@ impl Game {
             view_proj: Mat4::identity(),
             model: Mat4::identity(),
         };
+
+        let space_mesh = Torus::new(3.0, 10.0, 15);
         
         let mut game = Game {
             renderer: Renderer::new(window, display),
@@ -102,82 +107,43 @@ impl Game {
             rot: Vec3::new(0.0, 0.0, 0.0),
 
             uv_pos: Vec2::zero(),
+            uv_ratio: 3.0 / 10.0,
 
             map_push_constant,
             mesh_push_constant,
+
+            space_mesh,
         };
 
         let map_image_builder = ImageBuilder::new()
-            .width(512)
-            .height(512)
+            .width(1000)
+            .height((1000.0 * game.uv_ratio) as u32)
             .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED)
-            .format(vk::Format::R8G8B8A8_UNORM)
-            .layout(vk::ImageLayout::GENERAL);
-
-        let discard_image_builder = ImageBuilder::new()
-            .width(512)
-            .height(512)
-            .usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
             .format(vk::Format::B8G8R8A8_UNORM)
             .layout(vk::ImageLayout::GENERAL);
 
         game.renderer.add_images("map", map_image_builder);
-        game.renderer.add_images("discard", discard_image_builder);
 
-        let mut mesh_tris = Vec::<RaytracerTri>::with_capacity(2048);
-        mesh::parse_obj_as_tris(&mut mesh_tris, "res/meshes/torus.obj");
+        let map_pass_creation_refs = vec![CreationReference::Image("map".to_string())];
+        let mesh_pass_creation_refs = vec![CreationReference::Sampler("map".to_string())];
 
-        let mut mesh_verts = Vec::<MeshVertex>::with_capacity(2048);
-        for tri in mesh_tris {
-            mesh_verts.push(MeshVertex { pos: tri.verts[0].to_vec3(), col: tri.normal.to_vec3() });
-            mesh_verts.push(MeshVertex { pos: tri.verts[1].to_vec3(), col: tri.normal.to_vec3() });
-            mesh_verts.push(MeshVertex { pos: tri.verts[2].to_vec3(), col: tri.normal.to_vec3() });
-        }
+        let map_pass_builder = ComputePassBuilder::new()
+            .compute_shader("map.comp")
+            .dispatch_info(ComputePassDispatchInfo::new(32, 32, 1))
+            .push_constant::<MapPushConstant>()
+            .descriptors(map_pass_creation_refs, &game.renderer.data);
 
         let mesh_pass_builder = GraphicsPassBuilder::new()
             .vertex_shader("mesh.vert")
             .fragment_shader("mesh.frag")
-            .draw_info(GraphicsPassDrawInfo::simple_vertex(mesh_verts.len()))
+            .draw_info(GraphicsPassDrawInfo::simple_indexed(game.space_mesh.verts.len(), game.space_mesh.indices.len()))
             .targets(&game.renderer.swapchain.images)
-            .verts(&mesh_verts)
+            .verts(&game.space_mesh.verts)
+            .vertex_indices(&game.space_mesh.indices)
             .vertex_push_constant::<MeshPushConstant>()
+            .fragment_descriptors(mesh_pass_creation_refs, &game.renderer.data)
             .clear_col(Vec4::new(0.82, 0.8, 0.9, 1.0))
             .with_depth_buffer();
-
-        let map_pass_builder = GraphicsPassBuilder::<NoVertices>::new()
-            .vertex_shader("map.vert")
-            .fragment_shader("map.frag")
-            .draw_info(GraphicsPassDrawInfo::simple_vertex(6))
-            .fragment_push_constant::<MapPushConstant>()
-            .targets(game.renderer.get_images("map"))
-            .clear_col(Vec4::new(0.82, 0.0, 0.9, 1.0));
-
-        let map_pass_creation_refs = vec![CreationReference::Image("map".to_string())];
-        let ui_pass_creation_refs = vec![CreationReference::Sampler("map".to_string())];
-
-        // let map_pass_builder = ComputePassBuilder::new()
-        //     .compute_shader("map.comp")
-        //     .dispatch_info(ComputePassDispatchInfo::new(32, 32, 1))
-        //     .push_constant::<MapPushConstant>()
-        //     .descriptors(map_pass_creation_refs, &game.renderer.data);
-
-        let map_pass_builder = GraphicsPassBuilder::<NoVertices>::new()
-            .vertex_shader("map.vert")
-            .fragment_shader("map2.frag")
-            .draw_info(GraphicsPassDrawInfo::simple_vertex(6))
-            .targets(game.renderer.get_images("discard"))
-            .fragment_push_constant::<MapPushConstant>()
-            .fragment_descriptors(map_pass_creation_refs, &game.renderer.data);
-
-        let ui_pass_builder = GraphicsPassBuilder::<NoVertices>::new()
-            .vertex_shader("draw_to_screen.vert")
-            .fragment_shader("draw_to_screen.frag")
-            .draw_info(GraphicsPassDrawInfo::simple_vertex(6))
-            .targets(&game.renderer.swapchain.images)
-            .fragment_descriptors(ui_pass_creation_refs, &game.renderer.data)
-            .extent(vk::Extent2D { width: 500, height: 500})
-            .offset(vk::Offset2D { x: 780, y: 0})
-            .clear_col(Vec4::new(0.0, 0.5, 0.9, 1.0));
 
         let pass_dependancy = PassDependency {
             resource: ResourceReference::Image(game.renderer.data.get_image_refs("map")),
@@ -193,15 +159,12 @@ impl Game {
 
         game.renderer.add_layer("final_layer", true, LayerExecution::Main);
 
-        game.renderer.add_graphics_pass("final_layer", "map_draw", map_pass_builder);
+        game.renderer.add_compute_pass("final_layer", "map_draw", map_pass_builder);
         game.renderer.add_graphics_pass("final_layer", "mesh_draw", mesh_pass_builder);
-        game.renderer.add_graphics_pass("final_layer", "ui_draw", ui_pass_builder);
 
-        game.renderer.add_pass_dependency("final_layer", "map_draw", "mesh_draw", None);
-        game.renderer.add_pass_dependency("final_layer", "map_draw", "ui_draw", Some(pass_dependancy));
-        game.renderer.add_pass_dependency("final_layer", "mesh_draw", "ui_draw", None);
+        game.renderer.add_pass_dependency("final_layer", "map_draw", "mesh_draw", Some(pass_dependancy));
 
-        game.renderer.get_layer_mut("final_layer").set_root_path("ui_draw");
+        game.renderer.get_layer_mut("final_layer").set_root_path("mesh_draw");
 
         game
     }
@@ -216,6 +179,8 @@ impl Game {
 
         self.draw();
         self.frametime.set("Draw");
+
+        //println!("{}", self.frametime);
     }
 
     pub fn update(&mut self, delta: f32) {
@@ -260,8 +225,8 @@ impl Game {
 
         if self.uv_pos.x < 0.0 { self.uv_pos.x += 1.0 }
         if self.uv_pos.x >= 1.0 { self.uv_pos.x -= 1.0 }
-        if self.uv_pos.y < 0.0 { self.uv_pos.y += 1.0 }
-        if self.uv_pos.y >= 1.0 { self.uv_pos.y -= 1.0 }
+        if self.uv_pos.y < 0.0 { self.uv_pos.y += self.uv_ratio }
+        if self.uv_pos.y >= self.uv_ratio { self.uv_pos.y -= self.uv_ratio }
 
         // self.uv_pos.x %= 1.0;
         // self.uv_pos.y %= 1.0;
