@@ -48,9 +48,10 @@ bool check_circle(vec2 coord, vec2 circle, float rad) {
 
 bool check_line(vec2 coord, vec2 pos1, vec2 pos2, float width) {
     vec2 diff = pos2 - pos1;
-    vec2 normal = normalize(diff.y, -diff.y);
+    float lambda = abs(((coord.x - pos1.x) * diff.x + (coord.y - pos1.y) * diff.y)) / (diff.x * diff.x + diff.y * diff.y);
+    vec2 closest = pos1 + diff * lambda;
 
-    return false;
+    return distance(coord, closest) <= width && lambda <= 1;
 }
 
 void main() {
@@ -68,11 +69,14 @@ void main() {
     bool grid_line_vertical = abs(coord.y - grid_line_coords.y) < GRID_LINE_THICKNESS;
 
     bool within_circle = check_circle(coord, scene.pos, SIZE);
+    bool within_line = check_line(coord, vec2(0.5, 0.25), scene.pos, 0.05);
     bool grid_line = grid_line_horizontal || grid_line_vertical;
 
     vec4 outColor;
     if (within_circle) {
         outColor = vec4(1.0, 0.0, 0.5, 1.0);
+    } else if (within_line) {
+        outColor = vec4(0.0, 0.5, 1.0, 1.0);
     } else if (grid_line) {
         outColor = vec4(0.5, 0.0, 1.0, 1.0);
     } else {
