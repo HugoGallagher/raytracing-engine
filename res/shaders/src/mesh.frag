@@ -8,5 +8,5 @@ layout(location = 0) out vec4 out_col;
 
 void main() 
 {
-	out_col = texture(img, uv.yx);
+	out_col = texture(img, vec2(uv.y, 1 - uv.x));
 }

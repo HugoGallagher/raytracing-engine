@@ -10,9 +10,48 @@ const float GRID_LINE_THICKNESS = 0.05 / NUM_GRID_LINES;
 
 layout(push_constant) uniform push_constants {
     vec2 pos;
+    float height_by_width;
 } scene;
 
 layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
+
+bool check_circle(vec2 coord, vec2 circle, float rad) {
+    bool inside_circle = false;
+
+    float dst_to_circle = distance(coord, circle);
+    if (dst_to_circle <= rad) { inside_circle = true; }
+
+    vec2 adjusted_coord = coord;
+    vec2 diff = abs(circle - coord);
+
+    if (diff.x + rad >= 1) {
+        if (coord.x < 0.5) {
+            adjusted_coord.x += 1;
+        } else {
+            adjusted_coord.x -= 1;
+        }
+    }
+
+    if (diff.y + rad >= scene.height_by_width) {
+        if (coord.y < scene.height_by_width / 2) {
+            adjusted_coord.y += scene.height_by_width;
+        } else {
+            adjusted_coord.y -= scene.height_by_width;
+        }
+    }
+
+    dst_to_circle = distance(adjusted_coord, circle);
+    if (dst_to_circle <= rad) { inside_circle = true; }
+
+    return inside_circle;
+}
+
+bool check_line(vec2 coord, vec2 pos1, vec2 pos2, float width) {
+    vec2 diff = pos2 - pos1;
+    vec2 normal = normalize(diff.y, -diff.y);
+
+    return false;
+}
 
 void main() {
     vec2 coord = vec2(gl_GlobalInvocationID.xy) / 1024;
@@ -28,7 +67,7 @@ void main() {
     bool grid_line_horizontal = abs(coord.x - grid_line_coords.x) < GRID_LINE_THICKNESS;
     bool grid_line_vertical = abs(coord.y - grid_line_coords.y) < GRID_LINE_THICKNESS;
 
-    bool within_circle = dst_to_pos < SIZE;
+    bool within_circle = check_circle(coord, scene.pos, SIZE);
     bool grid_line = grid_line_horizontal || grid_line_vertical;
 
     vec4 outColor;

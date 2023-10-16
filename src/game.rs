@@ -30,6 +30,8 @@ impl FromObjTri for RaytracerTri {
 #[repr(C)]
 pub struct MapPushConstant {
     pub pos: Vec2,
+    pub height_by_width: f32,
+    pub angle: f32,
 }
 
 #[repr(C)]
@@ -81,6 +83,8 @@ impl Game {
     pub unsafe fn new(window: RawWindowHandle, display: RawDisplayHandle, r: Vec2) -> Game {
         let map_push_constant = MapPushConstant {
             pos: Vec2::zero(),
+            height_by_width: 0.5,
+            angle: 0.0,
         };
 
         let mesh_push_constant = MeshPushConstant {
@@ -88,7 +92,7 @@ impl Game {
             model: Mat4::identity(),
         };
 
-        let space_mesh = Torus::new(3.0, 10.0, 15);
+        let space_mesh = Torus::new(10.0 * map_push_constant.height_by_width, 10.0, 15);
         
         let mut game = Game {
             renderer: Renderer::new(window, display),
@@ -115,7 +119,7 @@ impl Game {
 
         let map_image_builder = ImageBuilder::new()
             .width(1024)
-            .height(1024)
+            .height((1024 as f32 * game.map_push_constant.height_by_width) as u32)
             .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED)
             .format(vk::Format::B8G8R8A8_UNORM)
             .layout(vk::ImageLayout::GENERAL);
@@ -124,6 +128,7 @@ impl Game {
 
         let map_pass_creation_refs = vec![CreationReference::Image("map".to_string())];
         let mesh_pass_creation_refs = vec![CreationReference::Sampler("map".to_string())];
+        let ui_pass_creation_refs = vec![CreationReference::Sampler("map".to_string())];
 
         let map_pass_builder = ComputePassBuilder::new()
             .compute_shader("map.comp")
@@ -143,6 +148,16 @@ impl Game {
             .clear_col(Vec4::new(0.82, 0.8, 0.9, 1.0))
             .with_depth_buffer();
 
+        let ui_pass_builder = GraphicsPassBuilder::<NoVertices>::new()
+            .vertex_shader("draw_to_screen.vert")
+            .fragment_shader("draw_to_screen.frag")
+            .draw_info(GraphicsPassDrawInfo::simple_vertex(6))
+            .targets(&game.renderer.swapchain.images)
+            .fragment_descriptors(ui_pass_creation_refs, &game.renderer.data)
+            .extent(vk::Extent2D { width: 500, height: (500 as f32 * game.map_push_constant.height_by_width) as u32})
+            .offset(vk::Offset2D { x: 780, y: 0})
+            .clear_col(Vec4::new(0.0, 0.5, 0.9, 1.0));
+
         let pass_dependancy = PassDependency {
             resource: ResourceReference::Image(game.renderer.data.get_image_refs("map")),
 
@@ -159,10 +174,12 @@ impl Game {
 
         game.renderer.add_compute_pass("final_layer", "map_draw", map_pass_builder);
         game.renderer.add_graphics_pass("final_layer", "mesh_draw", mesh_pass_builder);
+        game.renderer.add_graphics_pass("final_layer", "ui_draw", ui_pass_builder);
 
         game.renderer.add_pass_dependency("final_layer", "map_draw", "mesh_draw", Some(pass_dependancy));
+        game.renderer.add_pass_dependency("final_layer", "mesh_draw", "ui_draw", None);
 
-        game.renderer.get_layer_mut("final_layer").set_root_path("mesh_draw");
+        game.renderer.get_layer_mut("final_layer").set_root_path("ui_draw");
 
         game
     }
@@ -209,10 +226,10 @@ impl Game {
         }
 
         if self.key_down(VirtualKeyCode::I) {
-            self.uv_pos.y += uv_vel;
+            self.uv_pos.y -= uv_vel;
         }
         if self.key_down(VirtualKeyCode::K) {
-            self.uv_pos.y -= uv_vel;
+            self.uv_pos.y += uv_vel;
         }
         if self.key_down(VirtualKeyCode::J) {
             self.uv_pos.x -= uv_vel;
@@ -221,10 +238,10 @@ impl Game {
             self.uv_pos.x += uv_vel;
         }
 
-        if self.uv_pos.y < 0.0 { self.uv_pos.y += 1.0 }
-        if self.uv_pos.y >= 1.0 { self.uv_pos.y -= 1.0 }
         if self.uv_pos.x < 0.0 { self.uv_pos.x += 1.0 }
         if self.uv_pos.x >= 1.0 { self.uv_pos.x -= 1.0 }
+        if self.uv_pos.y < 0.0 { self.uv_pos.y += self.map_push_constant.height_by_width }
+        if self.uv_pos.y >= self.map_push_constant.height_by_width { self.uv_pos.y -= self.map_push_constant.height_by_width }
 
         // self.uv_pos.x %= 1.0;
         // self.uv_pos.y %= 1.0;
